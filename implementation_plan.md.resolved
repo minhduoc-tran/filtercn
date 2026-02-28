@@ -1,37 +1,44 @@
-# Rebuild ConditionalFilter với Shadcn/UI cho REST API
+# FilterCN v2: Kiến trúc & Thiết kế Component
 
-## Mục tiêu
+Tài liệu này mô tả chi tiết kiến trúc, thiết kế và các thành phần cốt lõi của thư viện **FilterCN (v2)** – một React/Next.js Conditional Filter Component mạnh mẽ, linh hoạt và được xây dựng trên nền tảng `shadcn/ui`.
 
-Xây dựng lại component `ConditionalFilter` của Saleor Dashboard thành một **thư viện filter component độc lập**, sử dụng **shadcn/ui** thay cho macaw-ui, và thiết kế để hoạt động với **REST API** thay vì GraphQL. Thư viện này phải nhẹ, dễ tích hợp, và có thể tái sử dụng cho nhiều dự án khác nhau.
-
-## Phân tích kiến trúc hiện tại (Saleor)
-
-Sau khi đọc toàn bộ mã nguồn (~170 files), kiến trúc hiện tại gồm **6 tầng chính**:
-
-```mermaid
-graph TD
-    A["UI Layer<br/>(macaw-ui components)"] --> B["Event Emitter<br/>(mediator pattern)"]
-    B --> C["Context Providers<br/>(12 entity-specific)"]
-    C --> D["Container State<br/>(useContainerState)"]
-    D --> E["Data Model<br/>(FilterElement, Condition)"]
-    E --> F["Query Builder<br/>(FiltersQueryBuilder)"]
-    F --> G["GraphQL API"]
-    D --> H["URL Value Provider<br/>(persistence)"]
-```
-
-### Vấn đề cần giải quyết khi rebuild
-
-| Vấn đề | Giải pháp |
-|---------|-----------|
-| Phụ thuộc macaw-ui (DynamicCombobox, Select, RangeInput...) | Thay bằng shadcn: Combobox, Select, Input, DatePicker |
-| 12 context providers cứng cho từng entity | 1 generic provider nhận config từ bên ngoài |
-| Coupled với GraphQL/Apollo (queries, mutations) | Chuyển sang REST adapter pattern với `fetch` |
-| [FiltersQueryBuilder](file:///Users/tmduoc/working/coding/learning/saleor-dashboard/src/components/ConditionalFilter/FiltersQueryBuilder/FiltersQueryBuilder.ts#30-148) build GraphQL variables | Build REST query params (`?field=value&field__gte=10`) |
-| Class-based data model (FilterElement, Condition...) | Giữ nguyên ý tưởng nhưng dùng TypeScript types + pure functions |
+Phiên bản v2 mang đến sự lột xác về mặt tiện dụng thông qua việc bổ sung **Search Bar (Global Search)** tích hợp liền mạch cùng bộ lọc điều kiện nhờ component `FilterBar`.
 
 ---
 
-## Thiết kế mới
+## 🌟 Điểm nổi bật trong v2: FilterBar & Search Sync
+
+Một trong những hạn chế lớn nhất của v1 là bộ lọc hoạt động độc lập với ô tìm kiếm văn bản tự do (free-text search). Sang phiên bản v2, chúng tôi giải quyết triệt để vấn đề này:
+
+### 1. Component Wrapper: `FilterBar`
+Thay vì chỉ cung cấp nút trigger mở Popover, v2 cung cấp componet `FilterBar` đóng vai trò là một Wrapper định dạng sẵn layout (ngang hàng).
+* **Bố cục giao diện**: Chứa một ô **Input Search** liền kề với **Popover Trigger** (Nút Filters) như một công cụ tìm kiếm hoàn chỉnh.
+* **Trải nghiệm nhất quán**: Người dùng có thể gõ từ khóa tìm kiếm nhanh, hoặc mở bộ lọc nâng cao bên cạnh để kết hợp cả hai.
+
+### 2. Quản lý `searchParamName` đồng bộ URL toàn diện
+Để thanh tìm kiếm hoạt động hiệu quả với bộ lọc điều kiện, URL Synchronization Logic cũng được nâng cấp:
+* **Tham số mới**: Bổ sung `searchParamName` (ví dụ `q` hoặc `search`) vào hook `useFilterUrlSync` và cấu hình Provider.
+* **Hòa quyện bộ lọc**: Nhờ tính năng này, việc người dùng gõ tìm kiếm sẽ cập nhật lên URL parameter (VD: `?search=shirt`), và khi user thêm biểu thức điều kiện (VD: giá > 100), URL sẽ lập tức kết hợp cả hai một cách hòa hợp (`?search=shirt&price__gt=100`) mà không trích xuất lỗi hay ghi đè lẫn nhau.
+
+---
+
+## Phân tích kiến trúc tổng thể
+
+Bộ lọc được thiết kế để hoạt động với **REST API** (thay cho GraphQL như các hệ thống cũ), rất nhẹ, và có thể tái sử dụng cho nhiều dự án khác nhau nhờ cấu trúc 6 tầng chính:
+
+```mermaid
+graph TD
+    A["UI Layer<br/>(FilterBar, Popover)"] --> B["Context Providers<br/>(FilterProvider)"]
+    B --> C["Data Model<br/>(FilterRow, Operator)"]
+    C --> D["Container State<br/>(useFilterState)"]
+    D --> E["Query Builder<br/>(REST Query Params)"]
+    D --> F["URL Sync & Persistence<br/>(useFilterUrlSync + searchParamName)"]
+    E --> G["REST API"]
+```
+
+---
+
+## Thiết kế chi tiết
 
 ### 1. Cấu trúc thư mục
 
@@ -42,18 +49,19 @@ src/components/conditional-filter/
 ├── index.ts                    # Public exports
 │
 ├── ui/                         # shadcn-based UI components
-│   ├── filter-root.tsx         # Container chính (Popover trigger + panel)
+│   ├── filter-bar.tsx          # [V2 FEATURE] Thanh công cụ chứa Search Input + Filter Button
+│   ├── filter-root.tsx         # Container chính (Popover panel) cho bộ lọc nâng cao
 │   ├── filter-row.tsx          # Một dòng filter: [Field] [Operator] [Value] [X]
 │   ├── filter-footer.tsx       # Nút "+ Add filter", "Reset", "Apply"
 │   ├── field-select.tsx        # Combobox chọn field (left operand)
 │   ├── operator-select.tsx     # Select chọn operator (is, contains, gte...)
-│   ├── value-input.tsx         # Dynamic value input (text/number/select/date/multiselect)
+│   ├── value-input.tsx         # Dynamic value input (text/number/select/date)
 │   └── filter-badge.tsx        # Badge hiển thị active filters count
 │
 ├── hooks/                      # React hooks
-│   ├── use-filter-state.ts     # CRUD state cho filter rows
-│   ├── use-filter-url-sync.ts  # Đồng bộ filter state <-> URL search params
-│   └── use-filter-options.ts   # Fetch options cho dynamic selects (REST)
+│   ├── use-filter-state.ts     # CRUD state cho filter rows nội bộ
+│   ├── use-filter-url-sync.ts  # [V2 UPDATED] Đồng bộ filter state & search text <-> URL
+│   └── use-filter-options.ts   # Fetch options cho dynamic selects (REST API)
 │
 ├── helpers/                    # Pure utility functions
 │   ├── query-builder.ts        # Build REST query params từ filter state
@@ -68,319 +76,127 @@ src/components/conditional-filter/
 
 ---
 
-### 2. Core Types ([types.ts](file:///Users/tmduoc/working/coding/learning/saleor-dashboard/src/components/ConditionalFilter/types.ts))
+### 2. Core Types
 
 ```typescript
 // ===== FIELD DEFINITION =====
-// Developer khai báo các field có thể filter
-export type FieldType = "text" | "number" | "select" | "multiselect"
-  | "date" | "datetime" | "boolean" | "combobox";
+export type FieldType = "text" | "number" | "select" | "multiselect" | "date" | "boolean" | "combobox";
 
 export interface FilterFieldDefinition {
-  /** Unique key, cũng là tên query param (e.g. "status", "category_id") */
-  name: string;
-  /** Label hiển thị trên UI */
-  label: string;
-  /** Loại input sẽ render */
-  type: FieldType;
-  /**
-   * Danh sách operators được phép (nếu không truyền, lấy default theo type)
-   * Ví dụ: ["is", "is_not"] cho select, ["gte", "lte", "between"] cho number
-   */
-  operators?: OperatorType[];
-  /**
-   * Options tĩnh cho select/multiselect (nếu không truyền, dùng fetchOptions)
-   */
-  options?: SelectOption[];
-  /**
-   * Hàm fetch options từ REST API (cho combobox/multiselect động)
-   */
+  name: string;             // Tên query param (e.g. "status")
+  label: string;            // Label hiển thị trên UI
+  type: FieldType;          // Render Value Input tương ứng
+  operators?: OperatorType[]; 
+  options?: SelectOption[]; // Dành riêng cho field Type="select"
   fetchOptions?: (search: string) => Promise<SelectOption[]>;
-}
-
-// ===== OPERATORS =====
-export type OperatorType =
-  | "is"           // =
-  | "is_not"       // !=
-  | "contains"     // *value* (partial match)
-  | "not_contains" // NOT *value*
-  | "gt"           // >
-  | "gte"          // >=
-  | "lt"           // <
-  | "lte"          // <=
-  | "between"      // range [from, to]
-  | "in"           // giá trị nằm trong danh sách
-  | "not_in"       // giá trị KHÔNG nằm trong danh sách
-  | "is_empty"     // NULL/empty check
-  | "is_not_empty";
-
-// ===== SELECT OPTION =====
-export interface SelectOption {
-  label: string;
-  value: string;
 }
 
 // ===== FILTER ROW (runtime state) =====
 export interface FilterRow {
-  id: string;                        // unique row id (nanoid)
-  field: FilterFieldDefinition | null;  // field đã chọn
-  operator: OperatorType | null;     // operator đã chọn
-  value: FilterValue;                // giá trị đã nhập
+  id: string;
+  field: FilterFieldDefinition | null;  
+  operator: OperatorType | null;     
+  value: FilterValue;                
 }
 
-export type FilterValue =
-  | string
-  | string[]
-  | number
-  | [number, number]   // range
-  | [string, string]   // date range
-  | boolean
-  | null;
-
-// ===== FILTER STATE =====
-export interface FilterState {
-  rows: FilterRow[];
-  conjunction: "and" | "or";  // AND/OR giữa các rows
-}
-
-// ===== REST QUERY OUTPUT =====
-// Kết quả sau khi build: { status: "active", price__gte: "10", price__lte: "50" }
-export type RestQueryParams = Record<string, string | string[]>;
+export type FilterValue = string | string[] | number | [number, number] | [string, string] | boolean | null;
 
 // ===== FILTER CONFIG (truyền vào Provider) =====
 export interface FilterConfig {
-  /** Danh sách fields có thể filter */
   fields: FilterFieldDefinition[];
-  /** Cho phép user chọn AND/OR? Default: false (luôn AND) */
   allowConjunctionToggle?: boolean;
-  /** Số filter rows tối đa. Default: 10 */
   maxRows?: number;
-  /** Custom query param format. Default: Django-style (__gte, __lte, __in) */
-  paramStyle?: "django" | "laravel" | "custom";
-  /** Custom builder nếu paramStyle = "custom" */
-  customParamBuilder?: (field: string, operator: OperatorType, value: FilterValue) => Record<string, string>;
-  /** Locale/i18n */
-  locale?: FilterLocale;
-}
-
-export interface FilterLocale {
-  addFilter: string;
-  reset: string;
-  apply: string;
-  placeholder: string;
-  and: string;
-  or: string;
-  noFilters: string;
+  paramStyle?: "underscore" | "bracket" | "custom";
 }
 ```
 
 ---
 
-### 3. Shadcn Components được sử dụng
+### 3. Hooks chi tiết
 
-| Shadcn Component | Dùng cho | Thay thế macaw-ui |
-|---|---|---|
-| **Popover** | Container popup filter (như screenshot) | `Box` + custom popup |
-| **Command (Combobox)** | Chọn field name (left operand) với search | `DynamicCombobox` |
-| **Select** | Chọn operator (is, contains, >=...) | [Select](file:///Users/tmduoc/working/coding/learning/saleor-dashboard/src/components/ConditionalFilter/FilterElement/FilterElement.ts#132-137) |
-| **Input** | Nhập text/number value | [Input](file:///Users/tmduoc/working/coding/learning/saleor-dashboard/src/components/ConditionalFilter/FilterElement/ConditionOptions.ts#6-7) |
-| **Calendar + Popover** (DatePicker) | Chọn ngày | `Input type="date"` |
-| **Badge** | Hiển thị số lượng active filters | Custom |
-| **Button** | Add filter, Remove, Reset, Apply | `Button` |
-| **Separator** | Phân cách | `Divider` |
-| **ScrollArea** | Scroll khi nhiều filter rows | - |
-
----
-
-### 4. Hooks chi tiết
-
-#### `useFilterState` — Quản lý CRUD filter rows
-
-```typescript
-interface UseFilterStateReturn {
-  state: FilterState;
-  // Mutations
-  addRow: () => void;
-  removeRow: (id: string) => void;
-  updateField: (id: string, field: FilterFieldDefinition) => void;
-  updateOperator: (id: string, operator: OperatorType) => void;
-  updateValue: (id: string, value: FilterValue) => void;
-  setConjunction: (conjunction: "and" | "or") => void;
-  reset: () => void;
-  // Derived
-  isValid: boolean;
-  activeCount: number;
-}
-```
-
-#### `useFilterUrlSync` — Đồng bộ state ↔ URL
+#### `useFilterUrlSync` — Đồng bộ toàn diện (Filters + Global Search)
 
 ```typescript
 interface UseFilterUrlSyncOptions {
   /** Sync ngay khi state thay đổi hay chỉ khi bấm Apply? */
   syncMode: "immediate" | "on-apply";
-  /** Prefix cho query params, e.g. "filter_" → ?filter_status=active */
+  /** Prefix cho query params filter, mặc định không có */
   paramPrefix?: string;
+  /** [V2] Tên param dùng cho global search Input trong FilterBar, mặc định "search" hoặc "q" */
+  searchParamName?: string;
 }
 ```
-
-#### `useFilterOptions` — Fetch options từ REST API
-
-```typescript
-// Dùng cho dynamic combobox/multiselect
-// Gọi field.fetchOptions() với debounce
-interface UseFilterOptionsReturn {
-  options: SelectOption[];
-  loading: boolean;
-  search: (query: string) => void;
-}
-```
+**Luồng hoạt động của URL Sync:**
+1. Khởi tạo: Hook đọc cả `searchParamName` lẫn các filter query để khôi phục State của cả ô Search lẫn các Filter Rows.
+2. Cập nhật: Khi User gõ vào `FilterBar` input, hook update URL `?search=...` (với debounce). Khi User bấm Apply filters, hook append các `__gte`, `__in` vào mà bảo toàn chuỗi search hiện tại.
 
 ---
 
-### 5. Query Builder cho REST API (`query-builder.ts`)
+### 4. Query Builder cho REST API (`query-builder.ts`)
 
 Hỗ trợ nhiều style phổ biến:
 
 ```typescript
-// Django REST Framework style (default)
-// status=active  |  price__gte=10  |  price__lte=50  |  category__in=1,2,3
+// Django REST Framework style (underscore - Mặc định)
+// ?search=jacket&status=active&price__gte=10&price__lte=50&category__in=1,2,3
 
-// Laravel style
-// filter[status]=active  |  filter[price][gte]=10
-
-// Custom style
-// Người dùng truyền customParamBuilder vào config
-```
-
-**Ví dụ output:**
-
-```typescript
-// Input: rows = [
-//   { field: "status", operator: "is", value: "active" },
-//   { field: "price", operator: "between", value: [10, 50] },
-//   { field: "category", operator: "in", value: ["shoes", "shirts"] }
-// ]
-
-// Output (Django style):
-// { status: "active", price__gte: "10", price__lte: "50", category__in: "shoes,shirts" }
-
-// Output (Laravel style):
-// { "filter[status]": "active", "filter[price][gte]": "10", "filter[price][lte]": "50", "filter[category][in]": "shoes,shirts" }
+// Laravel style (bracket)
+// ?q=jacket&filter[status]=active&filter[price][gte]=10
 ```
 
 ---
 
-### 6. Cách sử dụng (Developer API)
+### 5. API Tích hợp nhanh dành cho Developer (Usage)
 
+#### Bước 1: Khai báo fields
 ```tsx
-import { FilterProvider, FilterRoot, useFilterQuery } from "./conditional-filter";
-
-// 1. Khai báo fields
 const productFields: FilterFieldDefinition[] = [
-  { name: "status", label: "Status", type: "select",
-    options: [
-      { label: "Active", value: "active" },
-      { label: "Draft", value: "draft" },
-    ]
-  },
+  { name: "status", label: "Status", type: "select", options: [{ label: "Active", value: "active" }, { label: "Draft", value: "draft" }] },
   { name: "price", label: "Price", type: "number" },
-  { name: "name", label: "Name", type: "text" },
-  { name: "category", label: "Category", type: "combobox",
-    fetchOptions: async (search) => {
-      const res = await fetch(`/api/categories?search=${search}`);
-      const data = await res.json();
-      return data.results.map(c => ({ label: c.name, value: c.id }));
-    }
-  },
   { name: "created_at", label: "Created At", type: "date" },
 ];
+```
 
-// 2. Wrap và dùng
+#### Bước 2: Dùng `FilterBar` Wrapper
+Bọc `FilterBar` bên trong `FilterProvider`. `FilterBar` có sẵn ô tìm kiếm và Nút Trigger gọi Popover tự động.
+
+```tsx
+import { FilterProvider, FilterBar } from "@/components/conditional-filter";
+
 function ProductListPage() {
   return (
-    <FilterProvider config={{ fields: productFields, paramStyle: "django" }}>
-      <FilterRoot />
+    <FilterProvider config={{ fields: productFields, paramStyle: "underscore" }}>
+      {/* V2: Component này chứa Input Search ở bên trái và nút Filters ở bên phải */}
+      <FilterBar 
+        searchParamName="search"     // Sẽ đồng bộ text vào ?search=
+        placeholder="Search products by name..." 
+      />
+      
       <ProductTable />
     </FilterProvider>
   );
 }
+```
 
-// 3. Trong component con, lấy query params
-function ProductTable() {
-  const { queryParams, activeCount } = useFilterQuery();
-  // queryParams = { status: "active", price__gte: "10" }
-  // Dùng để fetch: GET /api/products?status=active&price__gte=10
+#### Bước 3: Đọc URL Parameters trong Data Table
+Server Component hoặc SWR Component chỉ việc lấy query từ URL. Hệ thống tự động đảm bảo query hoàn toàn tương thích và trong sáng.
+
+```tsx
+// Server Component ví dụ
+export default async function Page({ searchParams }) {
+  // Gửi trực tiếp params thẳng tới REST API:
+  // GET /api/products?search=shoes&price__gte=100
+  const products = await fetchProducts(searchParams);
+  
+  return <ProductTable data={products} />;
 }
 ```
 
 ---
 
-## So sánh: Saleor hiện tại vs Thiết kế mới
+## Tổng kết Lợi ích của Kiến trúc FilterCN v2
 
-| Khía cạnh | Saleor hiện tại | Thiết kế mới |
-|---|---|---|
-| UI Library | macaw-ui (nặng, Saleor-specific) | shadcn/ui (nhẹ, copy-paste) |
-| API Protocol | GraphQL (Apollo Client) | REST (fetch, configurable) |
-| Data Model | Class-based (FilterElement, Condition) | Type-based + pure functions |
-| Provider | 12 entity-specific providers | 1 generic provider + config |
-| Query Builder | GraphQL variables (`where`, `filter`) | REST params (`__gte`, `__lte`, `__in`) |
-| State Persistence | URL tokens (custom parser) | URL search params (native) |
-| Config | Hardcoded constants | Declarative field definitions |
-| Localization | react-intl messages | Simple locale object |
-| Bundle size | ~170 files, heavy | ~20 files, minimal |
-
----
-
-## Thứ tự triển khai
-
-### Phase 1: Core Foundation
-1. [types.ts](file:///Users/tmduoc/working/coding/learning/saleor-dashboard/src/components/ConditionalFilter/types.ts) — Tất cả type definitions
-2. [constants.ts](file:///Users/tmduoc/working/coding/learning/saleor-dashboard/src/components/ConditionalFilter/constants.ts) — Default operators per field type
-3. `helpers/operators.ts` — Operator → query param mapping
-4. `helpers/query-builder.ts` — Build REST query params
-5. `helpers/validators.ts` — Validate filter rows
-6. `helpers/serializer.ts` — Serialize/deserialize to URL
-
-### Phase 2: State & Hooks
-7. `hooks/use-filter-state.ts` — CRUD state management
-8. `hooks/use-filter-url-sync.ts` — URL synchronization
-9. `hooks/use-filter-options.ts` — Dynamic option fetching
-10. `provider/filter-context.ts` + `filter-provider.tsx` — Context
-
-### Phase 3: UI Components
-11. `ui/field-select.tsx` — Field combobox (shadcn Command)
-12. `ui/operator-select.tsx` — Operator select
-13. `ui/value-input.tsx` — Dynamic value input renderer
-14. `ui/filter-row.tsx` — Compose 1 row
-15. `ui/filter-footer.tsx` — Action buttons
-16. `ui/filter-root.tsx` — Main container
-17. `ui/filter-badge.tsx` — Active filter count
-
-### Phase 4: Testing & Polish
-18. Unit tests cho query-builder, validators, serializer
-19. Integration test cho full filter flow
-20. Storybook hoặc demo page
-
----
-
-## Verification Plan
-
-### Unit Tests
-- **Command**: `pnpm vitest run src/components/conditional-filter/` (hoặc jest tùy setup)
-- Test `query-builder.ts`: verify output cho Django/Laravel style
-- Test `serializer.ts`: serialize → URL → deserialize roundtrip
-- Test `validators.ts`: valid/invalid filter rows
-- Test [operators.ts](file:///Users/tmduoc/working/coding/learning/saleor-dashboard/src/components/ConditionalFilter/UI/operators.ts): đúng operator mapping
-
-### Manual Verification
-- Tạo 1 demo page đơn giản tích hợp [FilterProvider](file:///Users/tmduoc/working/coding/learning/saleor-dashboard/src/components/ConditionalFilter/types.ts#46-60) + `FilterRoot`
-- Mở browser → thao tác: thêm 3 filter rows → bấm Apply → kiểm tra URL params
-- Kiểm tra responsive trên mobile
-- Kiểm tra combobox search với mock REST endpoint
-
-> [!IMPORTANT]
-> Bạn cần xác nhận trước khi mình bắt tay vào code:
-> 1. Bạn muốn build thư viện này **trong repo saleor-dashboard hiện tại** hay tạo **repo mới riêng**?
-> 2. Bạn đã cài sẵn shadcn/ui chưa, hay mình setup từ đầu luôn?
-> 3. Về `paramStyle`, bạn dùng backend framework nào (Django, Laravel, Express...)? Để mình ưu tiên style phù hợp.
+1. **UX Liền Mạch**: Giao tiếp trực quan giữa Search tự do và Lọc theo ngữ cảnh thông qua `FilterBar`.
+2. **Cắm là chạy (Drop-in)**: Tách hoàn toàn Context ra khỏi App State management cồng kềnh (Redux/Zustand), phụ thuộc hoàn toàn vào URL là nguồn sự thật duy nhất (Single Source of Truth).
+3. **Mở rộng dễ dàng**: Thay UI (`FilterBar`) hoặc thuật toán Querying (`paramStyle`) một cách độc lập không làm đứt đoạn Logic API. 
+4. **Hiệu suất (Performance)**: Sử dụng các tiểu chuẩn kỹ thuật Form Hook giúp cô lập số lần render chỉ trong Vùng Popover mà không làm Table hay App bị re-render liên tục.
