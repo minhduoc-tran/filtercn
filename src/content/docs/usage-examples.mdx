@@ -1,0 +1,83 @@
+import { FilterDemo } from "@/components/filter-demo";
+
+Learn how to integrate the conditional filter component into your pages step-by-step.
+
+## Live Preview
+
+Try the filter component right here — click **Filters** to open the panel and add conditions:
+
+<FilterDemo />
+
+---
+
+## Step 1: Define Your Fields
+
+Start by defining the fields users can filter on. Define the array **outside** your component to prevent unnecessary re-renders.
+
+```tsx filename="app/products/page.tsx"
+import type { FilterFieldDefinition } from "@/components/conditional-filter/types";
+
+const myFields: FilterFieldDefinition[] = [
+  { 
+    name: "status", 
+    label: "Status", 
+    type: "select", 
+    options: [
+      { label: "Active", value: "active" },
+      { label: "Draft",  value: "draft"  },
+    ],
+  },
+  { name: "name",       label: "Name",       type: "text"   },
+  { name: "price",      label: "Price",      type: "number" },
+  { name: "created_at", label: "Created At", type: "date"   },
+];
+```
+
+## Step 2: Wrap with Provider and Render
+
+Use `FilterProvider` to inject config, then render `FilterRoot` anywhere inside it.
+
+```tsx filename="app/products/page.tsx"
+import { FilterProvider, FilterRoot } from "@/components/conditional-filter";
+
+export default function ProductsPage() {
+  return (
+    <div className="p-8 max-w-4xl mx-auto">
+      <FilterProvider config={{ fields: myFields, paramStyle: "underscore" }}>
+        <FilterRoot />
+      </FilterProvider>
+    </div>
+  );
+}
+```
+
+## Step 3: Read URL State on the Server
+
+Once users apply filters, the provider serializes them to URL search params automatically. Read them in any server component or API route:
+
+```tsx filename="app/products/page.tsx"
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Record<string, string>;
+}) {
+  // e.g. { status: "active", price_gt: "100" }
+  const products = await fetch(`/api/products?${new URLSearchParams(searchParams)}`);
+  // ...
+}
+```
+
+## Step 4: Use URL Sync Hook (Optional)
+
+Access and write filter state programmatically from client components using the `useFilterUrlSync` hook:
+
+```tsx filename="components/active-filters.tsx"
+"use client";
+import { useFilterUrlSync } from "@/components/conditional-filter/hooks/use-filter-url-sync";
+
+export function ActiveFiltersCount({ fields }) {
+  const { readState } = useFilterUrlSync(fields);
+  const { rows } = readState();
+  return <span>{rows.length} active filter(s)</span>;
+}
+```

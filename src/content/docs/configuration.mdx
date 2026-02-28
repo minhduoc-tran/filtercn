@@ -1,0 +1,53 @@
+The `FilterProvider` accepts a `config` prop with the following shape:
+
+```ts
+type FilterConfig = {
+  fields: FilterFieldDefinition[];
+  maxRows?: number;
+  allowConjunctionToggle?: boolean;
+  paramStyle?: "underscore" | "bracket" | "custom";
+  locale?: Locale;
+  customParamBuilder?: (rows: FilterRow[]) => URLSearchParams;
+};
+```
+
+## Config Properties
+
+| Property | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `fields` | `FilterFieldDefinition[]` | **Required** | The list of fields available for filtering. |
+| `maxRows` | `number` | `10` | Maximum number of filter rows a user can add. |
+| `allowConjunctionToggle` | `boolean` | `true` | Allows the user to toggle between `AND` / `OR` for the whole query. |
+| `paramStyle` | `"underscore" \| "bracket" \| "custom"` | `"underscore"` | Determines how the query string is formatted in the URL. |
+| `locale` | `Locale` | `enUS` | A `date-fns` locale object used to format the date picker. |
+| `customParamBuilder` | `Function` | `undefined` | Required when `paramStyle` is `"custom"`. |
+
+## Param Style Examples
+
+Given a filter of `price > 100`:
+
+| Style | Output |
+| :--- | :--- |
+| `underscore` | `?price_gt=100` |
+| `bracket` | `?price[gt]=100` |
+| `custom` | Whatever your custom builder returns |
+
+## Example: Custom Param Builder
+
+```tsx
+<FilterProvider
+  config={{
+    fields: myFields,
+    paramStyle: "custom",
+    customParamBuilder: (rows) => {
+      const params = new URLSearchParams();
+      for (const row of rows) {
+        params.set(`filter[${row.field}][${row.operator}]`, row.value);
+      }
+      return params;
+    },
+  }}
+>
+  <FilterRoot />
+</FilterProvider>
+```

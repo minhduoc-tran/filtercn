@@ -1,0 +1,10 @@
+services:
+  client:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+    environment:
+      NODE_ENV: production
+    ports:
+      - 3000:3000

@@ -1,0 +1,49 @@
+import { MdxCodeTabs } from "@/components/mdx-code-tabs";
+
+FilterCN is a headless, URL-driven conditional filter component built on top of **shadcn/ui** for Next.js. It lets your users build complex, multi-field queries (like a "where clause" builder) that are automatically serialized to URL search parameters — perfect for server-side filtering with REST APIs.
+
+## Features
+
+- **URL-driven state** — All filter state lives in the URL, making filters shareable and bookmarkable
+- **Zero backend changes** — Works with any existing REST API endpoint
+- **Type-safe fields** — Supports `string`, `number`, `boolean`, `date`, and `select` field types
+- **Auto-detects your project** — The CLI finds your `src/` layout and `tsconfig.json` alias automatically
+- **Fully extensible** — Bring your own operators, custom param builders, and locales
+
+## Quick Start
+
+Install in seconds with the CLI:
+
+<MdxCodeTabs 
+  npm="npx filtercn init"
+  pnpm="pnpm dlx filtercn init"
+  bun="bunx filtercn init"
+  yarn="yarn dlx filtercn init"
+/>
+
+Then wrap your page with `FilterProvider`:
+
+```tsx
+import { FilterProvider, FilterRoot } from "@/components/conditional-filter";
+
+const fields = [
+  { name: "status", label: "Status", type: "select", options: [...] },
+  { name: "price",  label: "Price",  type: "number" },
+];
+
+export default function MyPage() {
+  return (
+    <FilterProvider config={{ fields, paramStyle: "underscore" }}>
+      <FilterRoot />
+    </FilterProvider>
+  );
+}
+```
+
+## Built With
+
+- [React](https://react.dev/) & [Next.js](https://nextjs.org/)
+- [shadcn/ui](https://ui.shadcn.com/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [Lucide Icons](https://lucide.dev/)
+- [date-fns](https://date-fns.org/)

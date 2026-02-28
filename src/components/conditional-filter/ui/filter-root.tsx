@@ -1,0 +1,40 @@
+"use client";
+
+import { Filter as FilterIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useFilterContext } from "../provider/filter-context";
+import { FilterBadge } from "./filter-badge";
+import { FilterFooter } from "./filter-footer";
+import { FilterRowComponent } from "./filter-row";
+
+export function FilterRoot() {
+  const { state, config } = useFilterContext();
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="flex items-center gap-2">
+          <FilterIcon className="h-4 w-4" />
+          <span>Filters</span>
+          <FilterBadge />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[850px] p-4" align="start">
+        <ScrollArea className="max-h-[400px] pr-4">
+          <div className="flex flex-col gap-2">
+            {state.rows.length === 0 ? (
+              <div className="text-center py-4 text-muted-foreground">
+                {config.locale?.noFilters || "No filters active"}
+              </div>
+            ) : (
+              state.rows.map((row) => <FilterRowComponent key={row.id} rowId={row.id} />)
+            )}
+          </div>
+        </ScrollArea>
+        <FilterFooter />
+      </PopoverContent>
+    </Popover>
+  );
+}

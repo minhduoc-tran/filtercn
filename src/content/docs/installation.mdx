@@ -1,0 +1,521 @@
+import { MdxCodeTabs } from "@/components/mdx-code-tabs";
+
+If you prefer not to use the CLI, you can manually create every file. This guide walks you through each layer from scratch.
+
+> **Tip:** This takes about 5–10 minutes. If you just want to get started fast, use the [CLI installer](/docs/installation) instead.
+
+---
+
+## Step 1: Create the folder structure
+
+Inside your `src/components/` directory, create the following folder layout:
+
+```text
+src/
+  components/
+    conditional-filter/
+      helpers/
+      hooks/
+      provider/
+      ui/
+      constants.ts
+      types.ts
+      index.ts
+```
+
+---
+
+## Step 2: Install dependencies
+
+```bash
+npm install lucide-react date-fns
+```
+
+And make sure you have shadcn/ui set up with the required components:
+
+```bash
+npx shadcn@latest add button input select popover calendar command badge
+```
+
+---
+
+## Step 3: Create `types.ts`
+
+This is the foundation — all shared TypeScript types live here.
+
+Create `src/components/conditional-filter/types.ts`:
+
+```ts
+// Field types determine what input UI is rendered
+export type FieldType =
+  | "text" | "number" | "select" | "multiselect"
+  | "date" | "datetime" | "boolean" | "combobox";
+
+export type OperatorType =
+  | "is" | "is_not"
+  | "contains" | "not_contains"
+  | "gt" | "gte" | "lt" | "lte"
+  | "between" | "in" | "not_in"
+  | "is_empty" | "is_not_empty";
+
+export interface SelectOption {
+  label: string;
+  value: string;
+}
+
+export interface FilterFieldDefinition {
+  name: string;                              // query param key (e.g. "status")
+  label: string;                             // human-readable label
+  type: FieldType;
+  operators?: OperatorType[];                // restrict available operators
+  options?: SelectOption[];                  // for select / multiselect
+  fetchOptions?: (search: string) => Promise<SelectOption[]>; // async combobox
+}
+
+export interface FilterRow {
+  id: string;
+  field: FilterFieldDefinition | null;
+  operator: OperatorType | null;
+  value: FilterValue;
+}
+
+export type FilterValue =
+  | string | string[]
+  | number | [number, number]
+  | [string, string]
+  | boolean | null;
+
+export interface FilterState {
+  rows: FilterRow[];
+  conjunction: "and" | "or";
+}
+
+export type RestQueryParams = Record<string, string | string[]>;
+
+export interface FilterLocale {
+  addFilter: string;
+  reset: string;
+  apply: string;
+  placeholder: string;
+  and: string;
+  or: string;
+  noFilters: string;
+}
+
+export interface FilterConfig {
+  fields: FilterFieldDefinition[];
+  allowConjunctionToggle?: boolean;
+  maxRows?: number;
+  paramStyle?: "underscore" | "bracket" | "custom";
+  customParamBuilder?: (
+    field: string,
+    operator: OperatorType,
+    value: FilterValue
+  ) => Record<string, string>;
+  locale?: FilterLocale;
+}
+```
+
+---
+
+## Step 4: Create `constants.ts`
+
+Default locale strings and operator labels.
+
+Create `src/components/conditional-filter/constants.ts`:
+
+```ts
+import type { OperatorType, FieldType, FilterLocale } from "./types";
+
+export const DEFAULT_LOCALE: FilterLocale = {
+  addFilter: "Add filter",
+  reset: "Reset",
+  apply: "Apply",
+  placeholder: "Select...",
+  and: "And",
+  or: "Or",
+  noFilters: "No filters applied",
+};
+
+// Which operators are valid for each field type
+export const FIELD_OPERATORS: Record<FieldType, OperatorType[]> = {
+  text:        ["is", "is_not", "contains", "not_contains", "is_empty", "is_not_empty"],
+  number:      ["is", "is_not", "gt", "gte", "lt", "lte", "between", "is_empty", "is_not_empty"],
+  select:      ["is", "is_not", "in", "not_in", "is_empty", "is_not_empty"],
+  multiselect: ["in", "not_in", "is_empty", "is_not_empty"],
+  date:        ["is", "is_not", "gt", "lt", "between", "is_empty", "is_not_empty"],
+  datetime:    ["is", "is_not", "gt", "lt", "between", "is_empty", "is_not_empty"],
+  boolean:     ["is", "is_not"],
+  combobox:    ["is", "is_not", "in", "not_in", "is_empty", "is_not_empty"],
+};
+
+export const OPERATOR_LABELS: Record<OperatorType, string> = {
+  is:           "is",
+  is_not:       "is not",
+  contains:     "contains",
+  not_contains: "does not contain",
+  gt:           "greater than",
+  gte:          "greater than or equal",
+  lt:           "less than",
+  lte:          "less than or equal",
+  between:      "is between",
+  in:           "is one of",
+  not_in:       "is not one of",
+  is_empty:     "is empty",
+  is_not_empty: "is not empty",
+};
+```
+
+---
+
+## Step 5: Create helpers
+
+### `helpers/operators.ts`
+
+Returns the valid operators for a given field type.
+
+```ts
+import { FIELD_OPERATORS } from "../constants";
+import type { FilterFieldDefinition, OperatorType } from "../types";
+
+export function getOperatorsForField(field: FilterFieldDefinition): OperatorType[] {
+  if (field.operators && field.operators.length > 0) return field.operators;
+  return FIELD_OPERATORS[field.type] ?? [];
+}
+```
+
+### `helpers/validators.ts`
+
+Checks if a filter row has all required values before applying.
+
+```ts
+import type { FilterRow } from "../types";
+
+export function isValidFilterRow(row: FilterRow): boolean {
+  if (!row.field || !row.operator) return false;
+  if (row.operator === "is_empty" || row.operator === "is_not_empty") return true;
+  if (row.value === null || row.value === "" || row.value === undefined) return false;
+  if (Array.isArray(row.value) && row.value.length === 0) return false;
+  return true;
+}
+
+export function getValidFilterRows(rows: FilterRow[]): FilterRow[] {
+  return rows.filter(isValidFilterRow);
+}
+```
+
+### `helpers/query-builder.ts`
+
+Converts a `FilterRow` into REST query params.
+
+```ts
+import type { FilterRow, RestQueryParams, FilterConfig } from "../types";
+import { getValidFilterRows } from "./validators";
+
+export function buildRestQuery(
+  rows: FilterRow[],
+  config: Pick<FilterConfig, "paramStyle" | "customParamBuilder">
+): RestQueryParams {
+  const params: RestQueryParams = {};
+  const validRows = getValidFilterRows(rows);
+
+  for (const row of validRows) {
+    if (!row.field || !row.operator) continue;
+    const { name } = row.field;
+    const op = row.operator;
+    const val = row.value;
+
+    if (op === "is_empty" || op === "is_not_empty") {
+      const key = config.paramStyle === "bracket" ? `${name}[${op}]` : `${name}_${op}`;
+      params[key] = "true";
+      continue;
+    }
+
+    if (config.paramStyle === "custom" && config.customParamBuilder) {
+      const custom = config.customParamBuilder(name, op, val);
+      Object.assign(params, custom);
+      continue;
+    }
+
+    const key = config.paramStyle === "bracket" ? `${name}[${op}]` : `${name}_${op}`;
+    if (op === "is" || op === "is_not") {
+      params[name] = String(val);
+    } else {
+      params[key] = Array.isArray(val) ? (val as string[]) : String(val);
+    }
+  }
+  return params;
+}
+```
+
+### `helpers/serializer.ts`
+
+Serializes filter state to URL and back.
+
+```ts
+import type { FilterState, FilterRow, FilterFieldDefinition } from "../types";
+
+export function serializeFiltersToUrl(state: FilterState): URLSearchParams {
+  const params = new URLSearchParams();
+  params.set("conjunction", state.conjunction);
+  state.rows.forEach((row, i) => {
+    if (!row.field || !row.operator) return;
+    params.set(`filter[${i}][field]`,    row.field.name);
+    params.set(`filter[${i}][operator]`, row.operator);
+    params.set(`filter[${i}][value]`,    JSON.stringify(row.value));
+  });
+  return params;
+}
+
+export function deserializeUrlToFilters(
+  params: URLSearchParams,
+  fields: FilterFieldDefinition[]
+): FilterState {
+  const conjunction = (params.get("conjunction") ?? "and") as "and" | "or";
+  const rows: FilterRow[] = [];
+  let i = 0;
+  while (params.has(`filter[${i}][field]`)) {
+    const fieldName = params.get(`filter[${i}][field]`);
+    const operator  = params.get(`filter[${i}][operator]`) as FilterRow["operator"];
+    const valueRaw  = params.get(`filter[${i}][value]`);
+    const field     = fields.find((f) => f.name === fieldName) ?? null;
+    rows.push({
+      id: `row-${i}`,
+      field,
+      operator,
+      value: valueRaw ? JSON.parse(valueRaw) : null,
+    });
+    i++;
+  }
+  return { rows, conjunction };
+}
+```
+
+---
+
+## Step 6: Create hooks
+
+### `hooks/use-filter-state.ts`
+
+Manages the in-memory filter rows (add, remove, update).
+
+```ts
+import { useCallback, useState } from "react";
+import { nanoid } from "nanoid"; // or replace with: Math.random().toString(36)
+import type { FilterRow, FilterFieldDefinition, OperatorType, FilterValue } from "../types";
+
+function emptyRow(): FilterRow {
+  return { id: nanoid(), field: null, operator: null, value: null };
+}
+
+export function useFilterState(maxRows = 10) {
+  const [rows, setRows] = useState<FilterRow[]>([emptyRow()]);
+  const [conjunction, setConjunction] = useState<"and" | "or">("and");
+
+  const addRow = useCallback(() => {
+    if (rows.length >= maxRows) return;
+    setRows((prev) => [...prev, emptyRow()]);
+  }, [rows.length, maxRows]);
+
+  const removeRow = useCallback((id: string) => {
+    setRows((prev) => prev.filter((r) => r.id !== id));
+  }, []);
+
+  const updateField = useCallback((id: string, field: FilterFieldDefinition | null) => {
+    setRows((prev) =>
+      prev.map((r) => r.id === id ? { ...r, field, operator: null, value: null } : r)
+    );
+  }, []);
+
+  const updateOperator = useCallback((id: string, operator: OperatorType | null) => {
+    setRows((prev) =>
+      prev.map((r) => r.id === id ? { ...r, operator, value: null } : r)
+    );
+  }, []);
+
+  const updateValue = useCallback((id: string, value: FilterValue) => {
+    setRows((prev) =>
+      prev.map((r) => r.id === id ? { ...r, value } : r)
+    );
+  }, []);
+
+  const reset = useCallback(() => {
+    setRows([emptyRow()]);
+    setConjunction("and");
+  }, []);
+
+  return { rows, conjunction, setConjunction, addRow, removeRow, updateField, updateOperator, updateValue, reset };
+}
+```
+
+### `hooks/use-filter-url-sync.ts`
+
+Syncs filter state to/from URL search params.
+
+```ts
+"use client";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useCallback } from "react";
+import { serializeFiltersToUrl, deserializeUrlToFilters } from "../helpers/serializer";
+import type { FilterState, FilterFieldDefinition } from "../types";
+
+export function useFilterUrlSync(fields: FilterFieldDefinition[]) {
+  const router       = useRouter();
+  const pathname     = usePathname();
+  const searchParams = useSearchParams();
+
+  const readState = useCallback((): FilterState => {
+    return deserializeUrlToFilters(searchParams as unknown as URLSearchParams, fields);
+  }, [searchParams, fields]);
+
+  const writeState = useCallback((state: FilterState) => {
+    const params = serializeFiltersToUrl(state);
+    router.replace(`${pathname}?${params.toString()}`);
+  }, [router, pathname]);
+
+  return { readState, writeState };
+}
+```
+
+### `hooks/use-filter-options.ts`
+
+Handles async option fetching for combobox fields.
+
+```ts
+import { useEffect, useState } from "react";
+import type { FilterFieldDefinition, SelectOption } from "../types";
+
+export function useFilterOptions(field: FilterFieldDefinition | null, search: string) {
+  const [options, setOptions] = useState<SelectOption[]>(field?.options ?? []);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!field?.fetchOptions) {
+      setOptions(field?.options ?? []);
+      return;
+    }
+    setLoading(true);
+    field.fetchOptions(search).then((opts) => {
+      setOptions(opts);
+      setLoading(false);
+    });
+  }, [field, search]);
+
+  return { options, loading };
+}
+```
+
+---
+
+## Step 7: Create provider
+
+### `provider/filter-context.ts`
+
+```ts
+import { createContext, useContext } from "react";
+import type { FilterConfig, FilterState, FilterFieldDefinition, OperatorType, FilterValue } from "../types";
+
+export interface FilterContextValue {
+  config: FilterConfig;
+  state: FilterState;
+  addRow: () => void;
+  removeRow: (id: string) => void;
+  updateField: (id: string, field: FilterFieldDefinition | null) => void;
+  updateOperator: (id: string, op: OperatorType | null) => void;
+  updateValue: (id: string, value: FilterValue) => void;
+  setConjunction: (c: "and" | "or") => void;
+  reset: () => void;
+  apply: () => void;
+}
+
+export const FilterContext = createContext<FilterContextValue | null>(null);
+
+export function useFilterContext(): FilterContextValue {
+  const ctx = useContext(FilterContext);
+  if (!ctx) throw new Error("useFilterContext must be used inside <FilterProvider>");
+  return ctx;
+}
+```
+
+### `provider/filter-provider.tsx`
+
+```tsx
+"use client";
+import { useCallback } from "react";
+import { FilterContext } from "./filter-context";
+import { useFilterState } from "../hooks/use-filter-state";
+import { useFilterUrlSync } from "../hooks/use-filter-url-sync";
+import { buildRestQuery } from "../helpers/query-builder";
+import type { FilterConfig } from "../types";
+
+interface FilterProviderProps {
+  config: FilterConfig;
+  children: React.ReactNode;
+}
+
+export function FilterProvider({ config, children }: FilterProviderProps) {
+  const { rows, conjunction, setConjunction, addRow, removeRow,
+          updateField, updateOperator, updateValue, reset } = useFilterState(config.maxRows);
+  const { writeState } = useFilterUrlSync(config.fields);
+
+  const apply = useCallback(() => {
+    writeState({ rows, conjunction });
+    // Optionally: also build REST query for immediate use
+    const _query = buildRestQuery(rows, config);
+    console.log("Apply filter:", _query);
+  }, [rows, conjunction, writeState, config]);
+
+  return (
+    <FilterContext.Provider value={{
+      config, state: { rows, conjunction },
+      addRow, removeRow, updateField, updateOperator, updateValue,
+      setConjunction, reset, apply,
+    }}>
+      {children}
+    </FilterContext.Provider>
+  );
+}
+```
+
+---
+
+## Step 8: Create `index.ts`
+
+Barrel file that re-exports everything:
+
+```ts
+export * from "./types";
+export * from "./constants";
+export * from "./hooks/use-filter-state";
+export * from "./hooks/use-filter-url-sync";
+export * from "./hooks/use-filter-options";
+export * from "./provider/filter-context";
+export * from "./provider/filter-provider";
+export * from "./ui/filter-root";
+// ... add other UI exports as needed
+export { buildRestQuery } from "./helpers/query-builder";
+export { serializeFiltersToUrl, deserializeUrlToFilters } from "./helpers/serializer";
+export { isValidFilterRow, getValidFilterRows } from "./helpers/validators";
+```
+
+---
+
+## Step 9: Add the UI components
+
+The UI layer (`ui/`) contains 7 components. The simplest way is to copy them from the [GitHub repository](https://github.com/your-repo/filtercn/tree/main/src/components/conditional-filter/ui). Each component is self-contained and only imports from `../types`, `../constants`, and shadcn/ui.
+
+| File | Role |
+| :--- | :--- |
+| `filter-root.tsx` | Top-level container — renders all rows + footer |
+| `filter-row.tsx` | A single row: field select + operator select + value input |
+| `field-select.tsx` | Dropdown for choosing a field |
+| `operator-select.tsx` | Dropdown for choosing an operator |
+| `value-input.tsx` | Renders the correct input (text, number, date picker, etc.) |
+| `filter-footer.tsx` | Add filter / Reset / Apply buttons |
+| `filter-badge.tsx` | Small badge showing active filter count |
+
+---
+
+## All done!
+
+Once all files are in place, use the component exactly as described in [Usage Examples](/docs/usage-examples).

@@ -1,0 +1,65 @@
+A `FilterFieldDefinition` describes a single filterable column.
+
+## Type
+
+```ts
+type FilterFieldDefinition = {
+  name: string;
+  label: string;
+  type: "string" | "number" | "boolean" | "date" | "select";
+  options?: { label: string; value: string }[];
+  operators?: OperatorType[];
+};
+```
+
+## Properties
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `name` | `string` | The key sent to the server (e.g. `price`, `status`). |
+| `label` | `string` | The human-readable label shown in the filter dropdown. |
+| `type` | `FieldType` | Determines the input UI rendered (text, number input, date picker, etc.). |
+| `options` | `Option[]` | **Required** when `type` is `"select"`. Populates the value dropdown. |
+| `operators` | `OperatorType[]` | Restricts which operators (e.g. `eq`, `gt`, `contains`) are available for this field. If omitted, all operators valid for the type are shown. |
+
+## Field Types
+
+| Type | Input shown | Default operators |
+| :--- | :--- | :--- |
+| `string` | Text input | `is`, `is not`, `contains`, `does not contain`, `starts with`, `ends with`, `is empty`, `is not empty` |
+| `number` | Number input | `=`, `≠`, `>`, `≥`, `<`, `≤`, `is empty`, `is not empty` |
+| `boolean` | Toggle / select | `is true`, `is false` |
+| `date` | Date picker | `is`, `is before`, `is after`, `is between`, `is empty`, `is not empty` |
+| `select` | Dropdown | `is`, `is not`, `is empty`, `is not empty` |
+
+## Example
+
+```tsx
+const fields: FilterFieldDefinition[] = [
+  // Simple string field
+  { name: "name", label: "Name", type: "string" },
+
+  // Number field with restricted operators
+  {
+    name: "price",
+    label: "Price",
+    type: "number",
+    operators: ["gt", "lt", "eq"],
+  },
+
+  // Select field with custom options
+  {
+    name: "status",
+    label: "Status",
+    type: "select",
+    options: [
+      { label: "Active",   value: "active"   },
+      { label: "Inactive", value: "inactive" },
+      { label: "Pending",  value: "pending"  },
+    ],
+  },
+
+  // Date field
+  { name: "created_at", label: "Created At", type: "date" },
+];
+```

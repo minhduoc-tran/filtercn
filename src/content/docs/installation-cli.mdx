@@ -1,0 +1,36 @@
+import { MdxCodeTabs } from "@/components/mdx-code-tabs";
+
+The easiest and recommended way to install FilterCN. The CLI automatically detects your project layout, scaffolds all 19 files, and installs peer dependencies.
+
+## Prerequisites
+
+Since FilterCN is built on top of `shadcn/ui`, ensure it is configured first. Install the required components:
+
+```bash
+npx shadcn@latest add button input select popover calendar command badge
+```
+
+## Run the CLI
+
+Navigate to your project root and run:
+
+<MdxCodeTabs 
+  npm="npx filtercn init"
+  pnpm="pnpm dlx filtercn init"
+  bun="bunx filtercn init"
+  yarn="yarn dlx filtercn init"
+/>
+
+## What the CLI Does
+
+When you run the command, it will:
+
+1. **Detect** your project layout — whether you use `src/components` or just `components`, and your `tsconfig.json` path alias (e.g. `@/`).
+2. **Scaffold** a new `conditional-filter/` folder containing 19 files (types, hooks, helpers, UI components, and provider).
+3. **Install dependencies** — it checks your `package.json` for `lucide-react` and `date-fns`, and asks to install them if missing.
+
+Once the CLI prints `✨ FilterCN installed successfully!`, you're ready to go.
+
+## Next Step
+
+Head to [Usage Examples](/docs/usage-examples) to start filtering.
