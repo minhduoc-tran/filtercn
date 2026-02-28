@@ -1,0 +1,29 @@
+{
+  "name": "filtercn",
+  "version": "0.1.2",
+  "description": "CLI to scaffold the FilterCN conditional filter component into your Next.js + shadcn/ui project",
+  "type": "module",
+  "bin": {
+    "filtercn": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "fs-extra": "^11.3.0",
+    "ora": "^8.2.0",
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.17.50",
+    "@types/prompts": "^2.4.9",
+    "typescript": "^5.8.3"
+  },
+  "keywords": ["filter", "shadcn", "nextjs", "cli", "component"],
+  "license": "MIT"
+}
