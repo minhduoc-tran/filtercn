@@ -118,7 +118,8 @@ test.describe("Conditional Filter Component", () => {
     await page.getByRole("button", { name: "Apply" }).click();
 
     // URL should now contain both the global search AND the conditional filter
-    await expect(page).toHaveURL(/\?q=shoes&name=shirt/);
+    await expect(page).toHaveURL(/q=shoes/);
+    await expect(page).toHaveURL(/name__icontains=shirt/);
 
     // Ensure the search input still retains its value
     await expect(searchInput).toHaveValue("shoes");
