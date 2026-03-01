@@ -37,6 +37,8 @@ jobs:
 
       - name: Build Next.js App
         run: pnpm run build
+        env:
+          NEXT_PUBLIC_APP_URL: "https://filtercn.vercel.app"
 
       - name: Build CLI Templates
         run: pnpm run build:cli:templates
