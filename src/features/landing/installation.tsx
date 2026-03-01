@@ -6,17 +6,24 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const codeSnippet = `import { FilterProvider, FilterRoot } from "@/components/conditional-filter";
+const codeSnippet = `import { FilterProvider, FilterBar } from "@/components/conditional-filter";
 
-const fields = [
+const myFields = [
   { name: "status", label: "Status", type: "select", options: [...] },
   { name: "price", label: "Price", type: "number" },
 ];
 
-export default function MyPage() {
+export default function MyTable() {
   return (
-    <FilterProvider config={{ fields, paramStyle: "underscore" }}>
-      <FilterRoot />
+    <FilterProvider 
+      config={{ 
+        fields: myFields, 
+        paramStyle: "underscore",
+        allowConjunctionToggle: true,
+        searchParamName: "q"
+      }}
+    >
+      <FilterBar searchPlaceholder="Search..." />
     </FilterProvider>
   );
 }`;

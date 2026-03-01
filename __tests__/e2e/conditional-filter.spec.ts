@@ -28,7 +28,7 @@ test.describe("Conditional Filter Component", () => {
     await page.getByRole("button", { name: "+ Add filter" }).click();
 
     // Should see exactly one field select combobox
-    const selects = page.getByRole("combobox", { name: /select field/i }); // Using aria-label or accessible name if present,
+    await page.getByRole("combobox", { name: /select field/i }).first(); // Using aria-label or accessible name if present,
     // Fallback if no specific aria-label:
     const placeholders = page.getByText("Select field...");
     await expect(placeholders).toBeVisible();
@@ -88,5 +88,39 @@ test.describe("Conditional Filter Component", () => {
     // Verify badge goes away (button should just say Filters)
     const filterBtn = page.getByRole("button", { name: /Filters/ });
     await expect(filterBtn).toHaveText(/^Filters$/);
+  });
+
+  test("should update global search 'q' param when typing in FilterBar", async ({ page }) => {
+    // Locate the FilterBar global search input
+    const searchInput = page.getByPlaceholder("Search models...");
+    await expect(searchInput).toBeVisible();
+
+    // Type into the search input
+    await searchInput.fill("shoes");
+
+    // Wait for the debounce timeout (300ms) to sync the URL
+    await page.waitForTimeout(400);
+
+    // Verify that the URL is updated with the global search param `q`
+    await expect(page).toHaveURL(/\/\?q=shoes/);
+
+    // Ensure state persists when opening and closing the popover
+    await page.getByRole("button", { name: /^Filters$/ }).click();
+    await page.getByRole("button", { name: "+ Add filter" }).click();
+    await page.getByRole("combobox").first().click();
+    await page.getByRole("option", { name: "Name" }).click();
+
+    // Explicitly set operator to 'Contains' to ensure textbox is visible
+    await page.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "Contains" }).click();
+
+    await page.getByRole("textbox").fill("shirt");
+    await page.getByRole("button", { name: "Apply" }).click();
+
+    // URL should now contain both the global search AND the conditional filter
+    await expect(page).toHaveURL(/\?q=shoes&name=shirt/);
+
+    // Ensure the search input still retains its value
+    await expect(searchInput).toHaveValue("shoes");
   });
 });

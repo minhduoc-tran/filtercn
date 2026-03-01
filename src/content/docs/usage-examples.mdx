@@ -35,16 +35,16 @@ const myFields: FilterFieldDefinition[] = [
 
 ## Step 2: Wrap with Provider and Render
 
-Use `FilterProvider` to inject config, then render `FilterRoot` anywhere inside it.
+Use `FilterProvider` to inject config, then render `FilterBar` (which includes the `FilterRoot` popover and a global search input).
 
 ```tsx filename="app/products/page.tsx"
-import { FilterProvider, FilterRoot } from "@/components/conditional-filter";
+import { FilterProvider, FilterBar } from "@/components/conditional-filter";
 
 export default function ProductsPage() {
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <FilterProvider config={{ fields: myFields, paramStyle: "underscore" }}>
-        <FilterRoot />
+        <FilterBar searchPlaceholder="Search products..." />
       </FilterProvider>
     </div>
   );
@@ -61,23 +61,24 @@ export default async function ProductsPage({
 }: {
   searchParams: Record<string, string>;
 }) {
-  // e.g. { status: "active", price_gt: "100" }
+  // e.g. { status: "active", price__gt: "100" }
   const products = await fetch(`/api/products?${new URLSearchParams(searchParams)}`);
   // ...
 }
 ```
 
-## Step 4: Use URL Sync Hook (Optional)
+## Step 4: Extract the API query parameters (Client)
 
-Access and write filter state programmatically from client components using the `useFilterUrlSync` hook:
+Access the parsed query parameters directly from any client component inside the provider via the `useFilterQuery` hook:
 
 ```tsx filename="components/active-filters.tsx"
 "use client";
-import { useFilterUrlSync } from "@/components/conditional-filter/hooks/use-filter-url-sync";
+import { useFilterQuery } from "@/components/conditional-filter";
 
-export function ActiveFiltersCount({ fields }) {
-  const { readState } = useFilterUrlSync(fields);
-  const { rows } = readState();
-  return <span>{rows.length} active filter(s)</span>;
+export function ActiveFiltersCount() {
+  const { queryParams, activeCount } = useFilterQuery();
+  
+  // Example queryParams: { status__in: "active,draft", price__gte: 100 }
+  return <span>{activeCount} active filter(s)</span>;
 }
 ```

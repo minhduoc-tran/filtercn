@@ -6,6 +6,8 @@ type FilterConfig = {
   maxRows?: number;
   allowConjunctionToggle?: boolean;
   paramStyle?: "underscore" | "bracket" | "custom";
+  paramPrefix?: string;
+  searchParamName?: string;
   locale?: Locale;
   customParamBuilder?: (rows: FilterRow[]) => URLSearchParams;
 };
@@ -19,6 +21,8 @@ type FilterConfig = {
 | `maxRows` | `number` | `10` | Maximum number of filter rows a user can add. |
 | `allowConjunctionToggle` | `boolean` | `true` | Allows the user to toggle between `AND` / `OR` for the whole query. |
 | `paramStyle` | `"underscore" \| "bracket" \| "custom"` | `"underscore"` | Determines how the query string is formatted in the URL. |
+| `paramPrefix` | `string` | `undefined` | Optional prefix appended to all filter query parameters (e.g. `filter_`). |
+| `searchParamName` | `string` | `"q"` | The URL parameter name used for global search. Used by `FilterBar`. |
 | `locale` | `Locale` | `enUS` | A `date-fns` locale object used to format the date picker. |
 | `customParamBuilder` | `Function` | `undefined` | Required when `paramStyle` is `"custom"`. |
 
@@ -50,4 +54,23 @@ Given a filter of `price > 100`:
 >
   <FilterRoot />
 </FilterProvider>
+```
+
+## FilterBar Props
+
+If you use the `<FilterBar />` wrapper instead of just the bare `<FilterRoot />`, you can configure the search input and the layout order directly on the `FilterBar` component.
+
+| Property | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `searchPlaceholder` | `string` | `"Search..."` | Placeholder text for the search input. |
+| `searchValue` | `string` | `undefined` | Optional external controlled state for the search input. |
+| `onSearchChange` | `(value: string) => void` | `undefined` | Optional callback when search value changes. Overrides default URL sync behavior. |
+| `hideSearch` | `boolean` | `false` | Hides the search input entirely. |
+| `layout` | `"search-filters" \| "filters-search"` | `"search-filters"` | Reverses the layout order of the Search Input and Filter button. |
+
+```tsx
+<FilterBar 
+  searchPlaceholder="Search models..." 
+  layout="filters-search" 
+/>
 ```

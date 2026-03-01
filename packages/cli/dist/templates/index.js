@@ -1,107 +1,8 @@
 /**
- * All template files for the conditional-filter component.
- * Each key is the relative path within the component directory,
- * and each value is the file content.
- *
- * The `ALIAS` placeholder is replaced with the user's actual import alias.
+ * Auto-generated templates for the FilterCN CLI
  */
 const ALIAS = "__ALIAS__";
-// ===================== types.ts =====================
-const TYPES = `// ===== FIELD DEFINITION =====
-export type FieldType = "text" | "number" | "select" | "multiselect"
-  | "date" | "datetime" | "boolean" | "combobox";
-
-export interface FilterFieldDefinition {
-  /** Unique key, also used as the query param name (e.g. "status", "category_id") */
-  name: string;
-  /** Label displayed in the UI */
-  label: string;
-  /** Input type to render */
-  type: FieldType;
-  /** Allowed operators (defaults based on type if not provided) */
-  operators?: OperatorType[];
-  /** Static options for select/multiselect */
-  options?: SelectOption[];
-  /** Async function to fetch options from a REST API (for combobox/dynamic multiselect) */
-  fetchOptions?: (search: string) => Promise<SelectOption[]>;
-}
-
-// ===== OPERATORS =====
-export type OperatorType =
-  | "is"           // =
-  | "is_not"       // !=
-  | "contains"     // *value*
-  | "not_contains" // NOT *value*
-  | "gt"           // >
-  | "gte"          // >=
-  | "lt"           // <
-  | "lte"          // <=
-  | "between"      // range [from, to]
-  | "in"           // in list
-  | "not_in"       // not in list
-  | "is_empty"     // NULL/empty check
-  | "is_not_empty";
-
-// ===== SELECT OPTION =====
-export interface SelectOption {
-  label: string;
-  value: string;
-}
-
-// ===== FILTER ROW (runtime state) =====
-export interface FilterRow {
-  id: string;                        // unique row id
-  field: FilterFieldDefinition | null;  // selected field
-  operator: OperatorType | null;     // selected operator
-  value: FilterValue;                // entered value
-}
-
-export type FilterValue =
-  | string
-  | string[]
-  | number
-  | [number, number]   // range
-  | [string, string]   // date range
-  | boolean
-  | null;
-
-// ===== FILTER STATE =====
-export interface FilterState {
-  rows: FilterRow[];
-  conjunction: "and" | "or";
-}
-
-// ===== REST QUERY OUTPUT =====
-export type RestQueryParams = Record<string, string | string[]>;
-
-// ===== FILTER CONFIG (passed to Provider) =====
-export interface FilterConfig {
-  /** List of fields available for filtering */
-  fields: FilterFieldDefinition[];
-  /** Allow toggling AND/OR. Default: false */
-  allowConjunctionToggle?: boolean;
-  /** Max filter rows. Default: 10 */
-  maxRows?: number;
-  /** Param style. Default: underscore */
-  paramStyle?: "underscore" | "bracket" | "custom";
-  /** Custom builder */
-  customParamBuilder?: (field: string, operator: OperatorType, value: FilterValue) => Record<string, string>;
-  /** Locale */
-  locale?: FilterLocale;
-}
-
-export interface FilterLocale {
-  addFilter: string;
-  reset: string;
-  apply: string;
-  placeholder: string;
-  and: string;
-  or: string;
-  noFilters: string;
-}
-`;
-// ===================== constants.ts =====================
-const CONSTANTS = `import type { FilterLocale, OperatorType, FieldType } from "./types";
+const TEMPLATE_CONSTANTS_TS = `import type { FieldType, FilterLocale, OperatorType } from "./types";
 
 export const DEFAULT_LOCALE: FilterLocale = {
   addFilter: "+ Add filter",
@@ -124,12 +25,11 @@ export const DEFAULT_OPERATORS: Record<FieldType, OperatorType[]> = {
   combobox: ["is", "is_not", "is_empty", "is_not_empty"],
 };
 `;
-// ===================== helpers/operators.ts =====================
-const OPERATORS = `import type { OperatorType } from "../types";
+const TEMPLATE_HELPERS_OPERATORS_TS = `import type { OperatorType } from "../types";
 
 export const getOperatorSuffix = (operator: OperatorType, paramStyle: "underscore" | "bracket" | "custom"): string => {
   if (paramStyle === "custom") return "";
-  
+
   const mapping: Record<OperatorType, string> = {
     is: "", // usually no suffix for exact match
     is_not: "not",
@@ -145,7 +45,7 @@ export const getOperatorSuffix = (operator: OperatorType, paramStyle: "underscor
     is_empty: "isnull",
     is_not_empty: "isnull",
   };
-  
+
   const suffix = mapping[operator];
   if (!suffix) return "";
 
@@ -154,16 +54,172 @@ export const getOperatorSuffix = (operator: OperatorType, paramStyle: "underscor
   return "";
 };
 `;
-// ===================== helpers/validators.ts =====================
-const VALIDATORS = `import type { FilterRow } from "../types";
+const TEMPLATE_HELPERS_QUERY_BUILDER_TS = `import type { FilterConfig, FilterRow, RestQueryParams } from "../types";
+import { getOperatorSuffix } from "./operators";
+import { getValidFilterRows } from "./validators";
+
+export const buildRestQuery = (rows: FilterRow[], config: FilterConfig): RestQueryParams => {
+  const validRows = getValidFilterRows(rows);
+  const params: RestQueryParams = {};
+
+  validRows.forEach((row) => {
+    if (!row.field || !row.operator) return;
+
+    if (config.customParamBuilder) {
+      const customParams = config.customParamBuilder(row.field.name, row.operator, row.value);
+      Object.assign(params, customParams);
+      return;
+    }
+
+    const style = config.paramStyle || "underscore";
+    const suffix = getOperatorSuffix(row.operator, style);
+    const prefix = config.paramPrefix || "";
+
+    let paramKey = row.field.name;
+    if (style === "underscore" && suffix) {
+      paramKey = \`\${row.field.name}\${suffix}\`;
+    } else if (style === "bracket" && suffix) {
+      paramKey = \`filter[\${row.field.name}]\${suffix}\`;
+    } else if (style === "bracket" && !suffix) {
+      paramKey = \`filter[\${row.field.name}]\`;
+    }
+
+    if (prefix) {
+      paramKey = \`\${prefix}\${paramKey}\`;
+    }
+
+    let paramValue: string | string[];
+
+    if (row.operator === "is_empty") {
+      paramValue = "true";
+    } else if (row.operator === "is_not_empty") {
+      paramValue = "false";
+    } else if (row.operator === "between" && Array.isArray(row.value)) {
+      if (style === "underscore") {
+        paramValue = \`\${row.value[0]},\${row.value[1]}\`;
+      } else {
+        paramValue = [row.value[0].toString(), row.value[1].toString()];
+      }
+    } else if ((row.operator === "in" || row.operator === "not_in") && Array.isArray(row.value)) {
+      if (style === "underscore") {
+        paramValue = row.value.join(",");
+      } else {
+        paramValue = row.value.map((v) => v.toString());
+      }
+    } else {
+      paramValue = String(row.value);
+    }
+
+    params[paramKey] = paramValue;
+  });
+
+  return params;
+};
+`;
+const TEMPLATE_HELPERS_SERIALIZER_TS = `import type { FilterConfig, FilterRow, FilterState, FilterValue, OperatorType } from "../types";
+import { buildRestQuery } from "./query-builder";
+
+export const serializeFiltersToUrl = (state: FilterState, config: FilterConfig): URLSearchParams => {
+  const params = new URLSearchParams();
+  const restQuery = buildRestQuery(state.rows, config);
+
+  Object.entries(restQuery).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      params.append(key, value.join(","));
+    } else {
+      params.append(key, value);
+    }
+  });
+
+  if (state.conjunction === "or") {
+    params.set("conjunction", "or");
+  }
+
+  return params;
+};
+
+export const deserializeUrlToFilters = (params: URLSearchParams, config: FilterConfig): FilterState => {
+  const rows: FilterRow[] = [];
+  const style = config.paramStyle || "underscore";
+  const prefix = config.paramPrefix || "";
+
+  Array.from(params.entries()).forEach(([key, value]) => {
+    if (key === "conjunction") return;
+
+    let processKey = key;
+    if (prefix && processKey.startsWith(prefix)) {
+      processKey = processKey.slice(prefix.length);
+    } else if (prefix && !processKey.startsWith(prefix)) {
+      // If a prefix is configured but this key doesn't have it, it's not a filter param
+      return;
+    }
+
+    let fieldName = processKey;
+    let operatorStr = "";
+
+    if (style === "underscore" && processKey.includes("__")) {
+      const parts = processKey.split("__");
+      operatorStr = parts.pop() || "";
+      fieldName = parts.join("__");
+    } else if (style === "bracket" && processKey.startsWith("filter[")) {
+      // Very basic bracket parse assumption
+      const match = processKey.match(/filter\\[(.*?)\\](?:\\[(.*?)\\])?/);
+      if (match?.[1]) {
+        fieldName = match[1];
+        operatorStr = match[2] || "";
+      }
+    }
+
+    const fieldDef = config.fields.find((f) => f.name === fieldName);
+    if (!fieldDef) return;
+
+    const suffixToOp: Record<string, OperatorType> = {
+      "": "is",
+      not: "is_not",
+      icontains: "contains",
+      not_icontains: "not_contains",
+      gt: "gt",
+      gte: "gte",
+      lt: "lt",
+      lte: "lte",
+      range: "between",
+      in: "in",
+      not_in: "not_in",
+      isnull: value === "true" ? "is_empty" : "is_not_empty",
+    };
+
+    const operator = suffixToOp[operatorStr] || "is";
+    let parsedValue: FilterValue = value;
+
+    if (operator === "between" && typeof value === "string" && value.includes(",")) {
+      parsedValue = value.split(",");
+    } else if ((operator === "in" || operator === "not_in") && typeof value === "string" && value.includes(",")) {
+      parsedValue = value.split(",");
+    }
+
+    rows.push({
+      id: crypto.randomUUID(),
+      field: fieldDef,
+      operator,
+      value: parsedValue,
+    });
+  });
+
+  return {
+    rows,
+    conjunction: params.get("conjunction") === "or" ? "or" : "and",
+  };
+};
+`;
+const TEMPLATE_HELPERS_VALIDATORS_TS = `import type { FilterRow } from "../types";
 
 export const isValidFilterRow = (row: FilterRow): boolean => {
   if (!row.field || !row.operator) return false;
-  
+
   if (row.operator === "is_empty" || row.operator === "is_not_empty") {
     return true; // value doesn't matter for empty checks
   }
-  
+
   if (row.operator === "between") {
     if (!Array.isArray(row.value) || row.value.length !== 2) return false;
     if (row.value[0] === null || row.value[0] === "" || row.value[1] === null || row.value[1] === "") return false;
@@ -186,158 +242,75 @@ export const getValidFilterRows = (rows: FilterRow[]): FilterRow[] => {
   return rows.filter(isValidFilterRow);
 };
 `;
-// ===================== helpers/query-builder.ts =====================
-const QUERY_BUILDER = `import type { FilterConfig, FilterRow, RestQueryParams } from "../types";
-import { getOperatorSuffix } from "./operators";
-import { getValidFilterRows } from "./validators";
+const TEMPLATE_HOOKS_USE_FILTER_OPTIONS_TS = `"use client";
 
-export const buildRestQuery = (
-  rows: FilterRow[],
-  config: FilterConfig
-): RestQueryParams => {
-  const validRows = getValidFilterRows(rows);
-  const params: RestQueryParams = {};
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { SelectOption } from "../types";
 
-  validRows.forEach((row) => {
-    if (!row.field || !row.operator) return;
+export const useFilterOptions = (fetchFn?: (search: string) => Promise<SelectOption[]>) => {
+  const [options, setOptions] = useState<SelectOption[]>([]);
+  const [loading, setLoading] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout>(null);
 
-    if (config.customParamBuilder) {
-      const customParams = config.customParamBuilder(row.field.name, row.operator, row.value);
-      Object.assign(params, customParams);
-      return;
-    }
+  const search = useCallback(
+    (query: string) => {
+      if (!fetchFn) return;
 
-    const style = config.paramStyle || "underscore";
-    const suffix = getOperatorSuffix(row.operator, style);
-    
-    let paramKey = row.field.name;
-    if (style === "underscore" && suffix) {
-      paramKey = \`\${row.field.name}\${suffix}\`;
-    } else if (style === "bracket" && suffix) {
-      paramKey = \`filter[\${row.field.name}]\${suffix}\`;
-    } else if (style === "bracket" && !suffix) {
-      paramKey = \`filter[\${row.field.name}]\`;
-    }
-
-    let paramValue: string | string[];
-
-    if (row.operator === "is_empty") {
-      paramValue = "true";
-    } else if (row.operator === "is_not_empty") {
-      paramValue = "false";
-    } else if (row.operator === "between" && Array.isArray(row.value)) {
-      if (style === "underscore") {
-         paramValue = \`\${row.value[0]},\${row.value[1]}\`;
-      } else {
-         paramValue = [row.value[0].toString(), row.value[1].toString()];
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
-    } else if ((row.operator === "in" || row.operator === "not_in") && Array.isArray(row.value)) {
-      if (style === "underscore") {
-        paramValue = row.value.join(",");
-      } else {
-        paramValue = row.value.map(v => v.toString());
-      }
-    } else {
-      paramValue = String(row.value);
+
+      setLoading(true);
+
+      timeoutRef.current = setTimeout(async () => {
+        try {
+          const result = await fetchFn(query);
+          setOptions(result);
+        } catch (err) {
+          console.error("Failed to fetch filter options", err);
+        } finally {
+          setLoading(false);
+        }
+      }, 300);
+    },
+    [fetchFn],
+  );
+
+  // Initial fetch
+  useEffect(() => {
+    if (fetchFn) {
+      search("");
     }
+  }, [fetchFn, search]);
 
-    params[paramKey] = paramValue;
-  });
-
-  return params;
+  return { options, loading, search };
 };
 `;
-// ===================== helpers/serializer.ts =====================
-const SERIALIZER = `import type { FilterConfig, FilterRow, FilterState, OperatorType } from "../types";
-import { buildRestQuery } from "./query-builder";
+const TEMPLATE_HOOKS_USE_FILTER_QUERY_TS = `"use client";
 
-export const serializeFiltersToUrl = (state: FilterState, config: FilterConfig): URLSearchParams => {
-  const params = new URLSearchParams();
-  const queryObj = buildRestQuery(state.rows, config);
+import { useMemo } from "react";
+import { buildRestQuery } from "../helpers/query-builder";
+import { useFilterContext } from "../provider/filter-context";
 
-  Object.entries(queryObj).forEach(([key, value]) => {
-    if (Array.isArray(value)) {
-      value.forEach(v => params.append(key, v));
-    } else {
-      params.set(key, value);
-    }
-  });
+export function useFilterQuery() {
+  const { state, config, activeCount, isValid } = useFilterContext();
 
-  if (state.conjunction === "or" && config.allowConjunctionToggle) {
-    params.set("conjunction", "or");
-  }
-
-  return params;
-};
-
-export const deserializeUrlToFilters = (params: URLSearchParams, config: FilterConfig): FilterState => {
-  const rows: FilterRow[] = [];
-  const style = config.paramStyle || "underscore";
-
-  Array.from(params.entries()).forEach(([key, value]) => {
-    if (key === "conjunction") return;
-
-    let fieldName = key;
-    let operatorStr = "";
-
-    if (style === "underscore" && key.includes("__")) {
-      const parts = key.split("__");
-      operatorStr = parts.pop() || "";
-      fieldName = parts.join("__");
-    } else if (style === "bracket" && key.startsWith("filter[")) {
-      const match = key.match(/filter\\[(.*?)\\](?:\\[(.*?)\\])?/);
-      if (match && match[1]) {
-        fieldName = match[1];
-        operatorStr = match[2] || "";
-      }
-    }
-
-    const fieldDef = config.fields.find(f => f.name === fieldName);
-    if (!fieldDef) return;
-
-    const suffixToOp: Record<string, OperatorType> = {
-      "": "is",
-      "not": "is_not",
-      "icontains": "contains",
-      "not_icontains": "not_contains",
-      "gt": "gt",
-      "gte": "gte",
-      "lt": "lt",
-      "lte": "lte",
-      "range": "between",
-      "in": "in",
-      "not_in": "not_in",
-      "isnull": value === "true" ? "is_empty" : "is_not_empty"
-    };
-
-    const operator = suffixToOp[operatorStr] || "is";
-    let parsedValue: any = value;
-
-    if (operator === "between" && typeof value === 'string' && value.includes(",")) {
-      parsedValue = value.split(",");
-    } else if ((operator === "in" || operator === "not_in") && typeof value === 'string' && value.includes(",")) {
-      parsedValue = value.split(",");
-    }
-
-    rows.push({
-      id: crypto.randomUUID(),
-      field: fieldDef,
-      operator,
-      value: parsedValue
-    });
-  });
+  const queryParams = useMemo(() => {
+    return buildRestQuery(state.rows, config);
+  }, [state.rows, config]);
 
   return {
-    rows,
-    conjunction: params.get("conjunction") === "or" ? "or" : "and",
+    queryParams,
+    activeCount,
+    isValid,
+    conjunction: state.conjunction,
   };
-};
+}
 `;
-// ===================== hooks/use-filter-state.ts =====================
-const USE_FILTER_STATE = `"use client";
+const TEMPLATE_HOOKS_USE_FILTER_STATE_TS = `"use client";
 
-import { useState, useCallback } from "react";
-import type { FilterState, FilterFieldDefinition, OperatorType, FilterValue } from "../types";
+import { useCallback, useState } from "react";
+import type { FilterFieldDefinition, FilterState, FilterValue, OperatorType } from "../types";
 
 export const useFilterState = (initialState?: FilterState) => {
   const [state, setState] = useState<FilterState>(initialState || { rows: [], conjunction: "and" });
@@ -345,10 +318,7 @@ export const useFilterState = (initialState?: FilterState) => {
   const addRow = useCallback(() => {
     setState((prev) => ({
       ...prev,
-      rows: [
-        ...prev.rows,
-        { id: crypto.randomUUID(), field: null, operator: null, value: null },
-      ],
+      rows: [...prev.rows, { id: crypto.randomUUID(), field: null, operator: null, value: null }],
     }));
   }, []);
 
@@ -362,18 +332,14 @@ export const useFilterState = (initialState?: FilterState) => {
   const updateField = useCallback((id: string, field: FilterFieldDefinition) => {
     setState((prev) => ({
       ...prev,
-      rows: prev.rows.map((row) =>
-        row.id === id ? { ...row, field, operator: null, value: null } : row
-      ),
+      rows: prev.rows.map((row) => (row.id === id ? { ...row, field, operator: null, value: null } : row)),
     }));
   }, []);
 
   const updateOperator = useCallback((id: string, operator: OperatorType) => {
     setState((prev) => ({
       ...prev,
-      rows: prev.rows.map((row) =>
-        row.id === id ? { ...row, operator, value: null } : row
-      ),
+      rows: prev.rows.map((row) => (row.id === id ? { ...row, operator, value: null } : row)),
     }));
   }, []);
 
@@ -392,6 +358,8 @@ export const useFilterState = (initialState?: FilterState) => {
     setState({ rows: [], conjunction: "and" });
   }, []);
 
+  // Sync internal state with external state if external state changes intentionally
+  // Often useful when URL changes
   const overrideState = useCallback((newState: FilterState) => {
     setState(newState);
   }, []);
@@ -405,32 +373,24 @@ export const useFilterState = (initialState?: FilterState) => {
     updateValue,
     setConjunction,
     reset,
-    overrideState
+    overrideState,
   };
 };
 `;
-// ===================== hooks/use-filter-url-sync.ts =====================
-const USE_FILTER_URL_SYNC = `"use client";
+const TEMPLATE_HOOKS_USE_FILTER_URL_SYNC_TS = `"use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import type { FilterState, FilterConfig } from "../types";
-import { serializeFiltersToUrl, deserializeUrlToFilters } from "../helpers/serializer";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { deserializeUrlToFilters, serializeFiltersToUrl } from "../helpers/serializer";
 import { getValidFilterRows } from "../helpers/validators";
+import type { FilterConfig, FilterState } from "../types";
 
-interface UseFilterUrlSyncOptions {
-  syncMode: "immediate" | "on-apply";
-}
-
-export const useFilterUrlSync = (
-  config: FilterConfig,
-  _options: UseFilterUrlSyncOptions
-) => {
+export const useFilterUrlSync = (config: FilterConfig) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const isInitializing = useRef(true);
-  
+
   const [syncedState, setSyncedState] = useState<FilterState>(() => {
     const params = new URLSearchParams(searchParams.toString());
     return deserializeUrlToFilters(params, config);
@@ -445,13 +405,39 @@ export const useFilterUrlSync = (
     setSyncedState(deserializeUrlToFilters(params, config));
   }, [searchParams, config]);
 
-  const applyChanges = useCallback((newState: FilterState) => {
-    const validState = { ...newState, rows: getValidFilterRows(newState.rows) };
-    const newParams = serializeFiltersToUrl(validState, config);
-    const searchString = newParams.toString();
-    const query = searchString ? \`?\${searchString}\` : "";
-    router.replace(\`\${pathname}\${query}\`, { scroll: false });
-  }, [config, router, pathname]);
+  const handleSync = useCallback(
+    (currentState: FilterState) => {
+      // preserve current non-filter params + search param
+      const currentParams = new URLSearchParams(searchParams.toString());
+      const newParams = serializeFiltersToUrl(currentState, config);
+
+      // Keep searchParamName if it exists
+      const searchParamName = config.searchParamName || "q";
+      const currentSearchParam = currentParams.get(searchParamName);
+
+      // We clear all existing filter params (by trusting what serialize gives us)
+      // Then we append any non-filter params back (except what's newly generated)
+      // Simplest approach: create a fresh URLSearchParams, add all from \`newParams\`,
+      // then add anything from \`currentParams\` that isn't managed by the filter.
+      // For simplicity, we just keep the search param if provided.
+      if (currentSearchParam) {
+        newParams.set(searchParamName, currentSearchParam);
+      }
+
+      const queryStr = newParams.toString();
+      const newPath = queryStr ? \`\${pathname}?\${queryStr}\` : pathname;
+
+      router.push(newPath, { scroll: false });
+    },
+    [config, pathname, router, searchParams],
+  );
+
+  const applyChanges = useCallback(
+    (newState: FilterState) => {
+      handleSync({ ...newState, rows: getValidFilterRows(newState.rows) });
+    },
+    [handleSync],
+  );
 
   return {
     initialState: syncedState,
@@ -459,49 +445,35 @@ export const useFilterUrlSync = (
   };
 };
 `;
-// ===================== hooks/use-filter-options.ts =====================
-const USE_FILTER_OPTIONS = `"use client";
-
-import { useState, useEffect, useCallback } from "react";
-import type { SelectOption } from "../types";
-
-export const useFilterOptions = (fetchFn?: (search: string) => Promise<SelectOption[]>) => {
-  const [options, setOptions] = useState<SelectOption[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const search = useCallback(async (query: string) => {
-    if (!fetchFn) return;
-    setLoading(true);
-    try {
-      const result = await fetchFn(query);
-      setOptions(result);
-    } catch (err) {
-      console.error("Failed to fetch filter options", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchFn]);
-
-  // Initial fetch
-  useEffect(() => {
-    if (fetchFn) {
-      search("");
-    }
-  }, [fetchFn, search]);
-
-  return { options, loading, search };
-};
+const TEMPLATE_INDEX_TS = `export * from "./constants";
+export { buildRestQuery } from "./helpers/query-builder";
+export { deserializeUrlToFilters, serializeFiltersToUrl } from "./helpers/serializer";
+export { getValidFilterRows, isValidFilterRow } from "./helpers/validators";
+export * from "./hooks/use-filter-options";
+export * from "./hooks/use-filter-query";
+export * from "./hooks/use-filter-state";
+export * from "./hooks/use-filter-url-sync";
+export * from "./provider/filter-context";
+export * from "./provider/filter-provider";
+export * from "./types";
+export * from "./ui/field-select";
+export * from "./ui/filter-badge";
+export * from "./ui/filter-bar";
+export * from "./ui/filter-footer";
+export * from "./ui/filter-root";
+export * from "./ui/filter-row";
+export * from "./ui/operator-select";
+export * from "./ui/value-input";
 `;
-// ===================== provider/filter-context.ts =====================
-const FILTER_CONTEXT = `"use client";
+const TEMPLATE_PROVIDER_FILTER_CONTEXT_TS = `"use client";
 
 import { createContext, useContext } from "react";
-import type { FilterConfig, FilterState, FilterFieldDefinition, OperatorType, FilterValue } from "../types";
+import type { FilterConfig, FilterFieldDefinition, FilterState, FilterValue, OperatorType } from "../types";
 
 export interface FilterContextValue {
   config: FilterConfig;
   state: FilterState;
-  
+
   // Mutations
   addRow: () => void;
   removeRow: (id: string) => void;
@@ -529,16 +501,16 @@ export const useFilterContext = () => {
   return context;
 };
 `;
-// ===================== provider/filter-provider.tsx =====================
-const FILTER_PROVIDER = `"use client";
+const TEMPLATE_PROVIDER_FILTER_PROVIDER_TSX = `"use client";
 
-import React, { useMemo, useCallback } from "react";
-import type { FilterConfig } from "../types";
-import { FilterContext } from "./filter-context";
-import { useFilterState } from "../hooks/use-filter-state";
-import { useFilterUrlSync } from "../hooks/use-filter-url-sync";
+import type React from "react";
+import { useCallback, useMemo } from "react";
 import { DEFAULT_LOCALE } from "../constants";
 import { getValidFilterRows, isValidFilterRow } from "../helpers/validators";
+import { useFilterState } from "../hooks/use-filter-state";
+import { useFilterUrlSync } from "../hooks/use-filter-url-sync";
+import type { FilterConfig } from "../types";
+import { FilterContext } from "./filter-context";
 
 export interface FilterProviderProps {
   config: FilterConfig;
@@ -553,9 +525,7 @@ export const FilterProvider: React.FC<FilterProviderProps> = ({ config, children
     };
   }, [config]);
 
-  const { initialState, applyChanges } = useFilterUrlSync(currentConfig, {
-    syncMode: "on-apply",
-  });
+  const { initialState, applyChanges } = useFilterUrlSync(currentConfig);
 
   const {
     state,
@@ -569,7 +539,7 @@ export const FilterProvider: React.FC<FilterProviderProps> = ({ config, children
   } = useFilterState(initialState);
 
   const isValid = useMemo(() => state.rows.every(isValidFilterRow), [state.rows]);
-  
+
   const activeCount = useMemo(() => getValidFilterRows(state.rows).length, [state.rows]);
 
   const apply = useCallback(() => {
@@ -609,109 +579,148 @@ export const FilterProvider: React.FC<FilterProviderProps> = ({ config, children
       isValid,
       activeCount,
       apply,
-    ]
+    ],
   );
 
-  return (
-    <FilterContext.Provider value={value}>
-      {children}
-    </FilterContext.Provider>
-  );
+  return <FilterContext.Provider value={value}>{children}</FilterContext.Provider>;
 };
 `;
-// ===================== index.ts =====================
-const INDEX = `export * from "./types";
-export * from "./constants";
-export * from "./hooks/use-filter-state";
-export * from "./hooks/use-filter-url-sync";
-export * from "./hooks/use-filter-options";
-export * from "./provider/filter-context";
-export * from "./provider/filter-provider";
+const TEMPLATE_TYPES_TS = `// ===== FIELD DEFINITION =====
+export type FieldType = "text" | "number" | "select" | "multiselect" | "date" | "datetime" | "boolean" | "combobox";
 
-export * from "./ui/field-select";
-export * from "./ui/operator-select";
-export * from "./ui/value-input";
-export * from "./ui/filter-row";
-export * from "./ui/filter-footer";
-export * from "./ui/filter-badge";
-export * from "./ui/filter-root";
-
-export { buildRestQuery } from "./helpers/query-builder";
-export { serializeFiltersToUrl, deserializeUrlToFilters } from "./helpers/serializer";
-export { isValidFilterRow, getValidFilterRows } from "./helpers/validators";
-`;
-/**
- * Returns all template files mapped to their relative paths
- * within the component directory. The alias placeholder will
- * be replaced by the init command.
- */
-export function getTemplateFiles(alias) {
-  // UI components use the alias for importing shadcn UI primitives
-  const replaceAlias = (content) => content.replaceAll(ALIAS, alias);
-  return {
-    "types.ts": replaceAlias(TYPES),
-    "constants.ts": replaceAlias(CONSTANTS),
-    "index.ts": replaceAlias(INDEX),
-    "helpers/operators.ts": replaceAlias(OPERATORS),
-    "helpers/validators.ts": replaceAlias(VALIDATORS),
-    "helpers/query-builder.ts": replaceAlias(QUERY_BUILDER),
-    "helpers/serializer.ts": replaceAlias(SERIALIZER),
-    "hooks/use-filter-state.ts": replaceAlias(USE_FILTER_STATE),
-    "hooks/use-filter-url-sync.ts": replaceAlias(USE_FILTER_URL_SYNC),
-    "hooks/use-filter-options.ts": replaceAlias(USE_FILTER_OPTIONS),
-    "provider/filter-context.ts": replaceAlias(FILTER_CONTEXT),
-    "provider/filter-provider.tsx": replaceAlias(FILTER_PROVIDER),
-    ...getUITemplates(alias),
-  };
+export interface FilterFieldDefinition {
+  /** Unique key, cũng là tên query param (e.g. "status", "category_id") */
+  name: string;
+  /** Label hiển thị trên UI */
+  label: string;
+  /** Loại input sẽ render */
+  type: FieldType;
+  /**
+   * Danh sách operators được phép (nếu không truyền, lấy default)
+   */
+  operators?: OperatorType[];
+  /**
+   * Options tĩnh cho select/multiselect
+   */
+  options?: SelectOption[];
+  /**
+   * Hàm fetch options từ REST API (cho combobox/multiselect động)
+   */
+  fetchOptions?: (search: string) => Promise<SelectOption[]>;
 }
-/**
- * UI component templates — these use the alias for shadcn imports
- */
-function getUITemplates(alias) {
-  const FIELD_SELECT = `"use client";
 
-import { useState } from "react";
+// ===== OPERATORS =====
+export type OperatorType =
+  | "is" // =
+  | "is_not" // !=
+  | "contains" // *value*
+  | "not_contains" // NOT *value*
+  | "gt" // >
+  | "gte" // >=
+  | "lt" // <
+  | "lte" // <=
+  | "between" // range [from, to]
+  | "in" // in list
+  | "not_in" // not in list
+  | "is_empty" // NULL/empty check
+  | "is_not_empty";
+
+// ===== SELECT OPTION =====
+export interface SelectOption {
+  label: string;
+  value: string;
+}
+
+// ===== FILTER ROW (runtime state) =====
+export interface FilterRow {
+  id: string; // unique row id
+  field: FilterFieldDefinition | null; // field đã chọn
+  operator: OperatorType | null; // operator đã chọn
+  value: FilterValue; // giá trị đã nhập
+}
+
+export type FilterValue =
+  | string
+  | string[]
+  | number
+  | [number, number] // range
+  | [string, string] // date range
+  | boolean
+  | null;
+
+// ===== FILTER STATE =====
+export interface FilterState {
+  rows: FilterRow[];
+  conjunction: "and" | "or";
+}
+
+// ===== REST QUERY OUTPUT =====
+export type RestQueryParams = Record<string, string | string[]>;
+
+// ===== FILTER CONFIG (truyền vào Provider) =====
+export interface FilterConfig {
+  /** Danh sách fields có thể filter */
+  fields: FilterFieldDefinition[];
+  /** Cho phép toggle AND/OR. Default: false */
+  allowConjunctionToggle?: boolean;
+  /** Max filter rows. Default: 10 */
+  maxRows?: number;
+  /** Param style. Default: underscore */
+  paramStyle?: "underscore" | "bracket" | "custom";
+  /** Prefix appended to all query params. e.g "filter_" */
+  paramPrefix?: string;
+  /** Global search query param name. Default: q */
+  searchParamName?: string;
+  /** Custom builder */
+  customParamBuilder?: (field: string, operator: OperatorType, value: FilterValue) => Record<string, string>;
+  /** Locale */
+  locale?: FilterLocale;
+}
+
+export interface FilterLocale {
+  addFilter: string;
+  reset: string;
+  apply: string;
+  placeholder: string;
+  and: string;
+  or: string;
+  noFilters: string;
+}
+`;
+const TEMPLATE_UI_FIELD_SELECT_TSX = `"use client";
+
 import { Check, ChevronsUpDown } from "lucide-react";
-import { Button } from "${alias}components/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "${alias}components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "${alias}components/ui/popover";
+import { useState } from "react";
+import { Button } from "__ALIAS__components/ui/button";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "__ALIAS__components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "__ALIAS__components/ui/popover";
+import { cn } from "__ALIAS__lib/utils";
 import { useFilterContext } from "../provider/filter-context";
 import type { FilterFieldDefinition } from "../types";
 
-interface FieldSelectProps {
+export interface FieldSelectProps {
   rowId: string;
+  selectedField: FilterFieldDefinition | null;
 }
 
-export function FieldSelect({ rowId }: FieldSelectProps) {
+export function FieldSelect({ rowId, selectedField }: FieldSelectProps) {
+  const { config, updateField } = useFilterContext();
   const [open, setOpen] = useState(false);
-  const { config, state, updateField } = useFilterContext();
-  const row = state.rows.find((r) => r.id === rowId);
-
-  const handleSelect = (field: FilterFieldDefinition) => {
-    updateField(rowId, field);
-    setOpen(false);
-  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" className="w-[180px] justify-between text-sm">
-          {row?.field?.label || config.locale?.placeholder || "Select..."}
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-[160px] justify-between font-normal"
+        >
+          <span className="truncate">{selectedField ? selectedField.label : "Select field..."}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0">
+      <PopoverContent className="w-[200px] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search field..." />
           <CommandList>
@@ -721,10 +730,13 @@ export function FieldSelect({ rowId }: FieldSelectProps) {
                 <CommandItem
                   key={field.name}
                   value={field.name}
-                  onSelect={() => handleSelect(field)}
+                  onSelect={() => {
+                    updateField(rowId, field);
+                    setOpen(false);
+                  }}
                 >
                   <Check
-                    className={\`mr-2 h-4 w-4 \${row?.field?.name === field.name ? "opacity-100" : "opacity-0"}\`}
+                    className={cn("mr-2 h-4 w-4", selectedField?.name === field.name ? "opacity-100" : "opacity-0")}
                   />
                   {field.label}
                 </CommandItem>
@@ -737,320 +749,255 @@ export function FieldSelect({ rowId }: FieldSelectProps) {
   );
 }
 `;
-  const OPERATOR_SELECT = `"use client";
+const TEMPLATE_UI_FILTER_BADGE_TSX = `"use client";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "${alias}components/ui/select";
+import { Badge } from "__ALIAS__components/ui/badge";
 import { useFilterContext } from "../provider/filter-context";
-import { DEFAULT_OPERATORS } from "../constants";
-import type { OperatorType } from "../types";
 
-interface OperatorSelectProps {
-  rowId: string;
-}
+export function FilterBadge() {
+  const { activeCount } = useFilterContext();
 
-const OPERATOR_LABELS: Record<OperatorType, string> = {
-  is: "is",
-  is_not: "is not",
-  contains: "contains",
-  not_contains: "not contains",
-  gt: "greater than",
-  gte: "greater or equal",
-  lt: "less than",
-  lte: "less or equal",
-  between: "between",
-  in: "in",
-  not_in: "not in",
-  is_empty: "is empty",
-  is_not_empty: "is not empty",
-};
-
-export function OperatorSelect({ rowId }: OperatorSelectProps) {
-  const { state, updateOperator } = useFilterContext();
-  const row = state.rows.find((r) => r.id === rowId);
-
-  if (!row?.field) return null;
-
-  const operators = row.field.operators || DEFAULT_OPERATORS[row.field.type] || [];
+  if (activeCount === 0) return null;
 
   return (
-    <Select
-      value={row.operator || ""}
-      onValueChange={(value) => updateOperator(rowId, value as OperatorType)}
-    >
-      <SelectTrigger className="w-[160px] text-sm">
-        <SelectValue placeholder="Operator..." />
-      </SelectTrigger>
-      <SelectContent>
-        {operators.map((op) => (
-          <SelectItem key={op} value={op}>
-            {OPERATOR_LABELS[op] || op}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <Badge variant="secondary" className="ml-2 rounded-full px-2">
+      {activeCount}
+    </Badge>
   );
 }
 `;
-  const VALUE_INPUT = `"use client";
+const TEMPLATE_UI_FILTER_BAR_TSX = `"use client";
 
-import { useState, useEffect } from "react";
-import { Input } from "${alias}components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "${alias}components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "${alias}components/ui/popover";
-import { Button } from "${alias}components/ui/button";
-import { Calendar } from "${alias}components/ui/calendar";
-import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { Search } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import * as React from "react";
+import { Input } from "__ALIAS__components/ui/input";
+import { cn } from "__ALIAS__lib/utils";
 import { useFilterContext } from "../provider/filter-context";
-import { useFilterOptions } from "../hooks/use-filter-options";
-import { Badge } from "${alias}components/ui/badge";
-import type { SelectOption } from "../types";
+import { FilterRoot } from "./filter-root";
 
-interface ValueInputProps {
-  rowId: string;
+export interface FilterBarProps extends React.HTMLAttributes<HTMLDivElement> {
+  searchPlaceholder?: string;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  hideSearch?: boolean;
+  /**
+   * Defines the layout order: "search-filters" or "filters-search"
+   * @default "search-filters"
+   */
+  layout?: "search-filters" | "filters-search";
 }
 
-export function ValueInput({ rowId }: ValueInputProps) {
-  const { state, updateValue } = useFilterContext();
-  const row = state.rows.find((r) => r.id === rowId);
+export const FilterBar = React.forwardRef<HTMLDivElement, FilterBarProps>(
+  (
+    {
+      className,
+      searchPlaceholder = "Search...",
+      searchValue: externalSearchValue,
+      onSearchChange,
+      hideSearch = false,
+      layout = "search-filters",
+      ...props
+    },
+    ref,
+  ) => {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const { config } = useFilterContext();
 
-  if (!row?.field || !row.operator) return null;
+    const searchParamName = config.searchParamName || "q";
+    const internalSearchValue = searchParams.get(searchParamName) || "";
 
-  // No value needed for empty checks
-  if (row.operator === "is_empty" || row.operator === "is_not_empty") {
-    return null;
-  }
+    const [localValue, setLocalValue] = React.useState(
+      externalSearchValue !== undefined ? externalSearchValue : internalSearchValue,
+    );
 
-  const fieldType = row.field.type;
+    const [, startTransition] = React.useTransition();
+    const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  switch (fieldType) {
-    case "text":
-      return <TextInput rowId={rowId} />;
-    case "number":
-      return row.operator === "between"
-        ? <RangeInput rowId={rowId} />
-        : <NumberInput rowId={rowId} />;
-    case "select":
-    case "combobox":
-      return <SelectInput rowId={rowId} />;
-    case "multiselect":
-      return <MultiSelectInput rowId={rowId} />;
-    case "date":
-    case "datetime":
-      return row.operator === "between"
-        ? <DateRangeInput rowId={rowId} />
-        : <DateInput rowId={rowId} />;
-    case "boolean":
-      return <BooleanInput rowId={rowId} />;
-    default:
-      return <TextInput rowId={rowId} />;
-  }
-}
+    // Sync external changes (e.g. from clear filters) back into local state
+    React.useEffect(() => {
+      if (externalSearchValue !== undefined) {
+        setLocalValue(externalSearchValue);
+      } else {
+        setLocalValue(internalSearchValue);
+      }
+    }, [externalSearchValue, internalSearchValue]);
 
-function TextInput({ rowId }: { rowId: string }) {
-  const { state, updateValue } = useFilterContext();
-  const row = state.rows.find((r) => r.id === rowId);
+    const handleSearchChange = (value: string) => {
+      if (onSearchChange) {
+        onSearchChange(value);
+        return;
+      }
+
+      setLocalValue(value);
+
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      timeoutRef.current = setTimeout(() => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (value) {
+          params.set(searchParamName, value);
+        } else {
+          params.delete(searchParamName);
+        }
+        const queryStr = params.toString();
+        const newPath = queryStr ? \`\${pathname}?\${queryStr}\` : pathname;
+
+        startTransition(() => {
+          router.replace(newPath, { scroll: false });
+        });
+      }, 300);
+    };
+
+    const searchComponent = !hideSearch && (
+      <div className="flex-1 max-w-sm">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder={searchPlaceholder}
+            className="pl-8"
+            value={localValue}
+            onChange={(e) => handleSearchChange(e.target.value)}
+          />
+        </div>
+      </div>
+    );
+
+    const filtersComponent = (
+      <div className="flex items-center gap-2">
+        <FilterRoot />
+      </div>
+    );
+
+    return (
+      <div ref={ref} className={cn("flex items-center justify-between gap-4", className)} {...props}>
+        {layout === "filters-search" ? (
+          <>
+            {filtersComponent}
+            {searchComponent}
+          </>
+        ) : (
+          <>
+            {searchComponent}
+            {filtersComponent}
+          </>
+        )}
+      </div>
+    );
+  },
+);
+FilterBar.displayName = "FilterBar";
+`;
+const TEMPLATE_UI_FILTER_FOOTER_TSX = `"use client";
+
+import { Button } from "__ALIAS__components/ui/button";
+import { PopoverClose } from "__ALIAS__components/ui/popover";
+import { isValidFilterRow } from "../helpers/validators";
+import { useFilterContext } from "../provider/filter-context";
+
+export function FilterFooter() {
+  const { config, addRow, reset, apply, state, setConjunction } = useFilterContext();
+  const maxRows = config.maxRows || 10;
+  const canAddMore = state.rows.length < maxRows;
+
+  // Determine if there is at least one valid filter row
+  const hasValidFilters = state.rows.some(isValidFilterRow);
 
   return (
-    <Input
-      type="text"
-      placeholder="Enter value..."
-      className="w-[200px] text-sm"
-      value={(row?.value as string) || ""}
-      onChange={(e) => updateValue(rowId, e.target.value)}
-    />
-  );
-}
-
-function NumberInput({ rowId }: { rowId: string }) {
-  const { state, updateValue } = useFilterContext();
-  const row = state.rows.find((r) => r.id === rowId);
-
-  return (
-    <Input
-      type="number"
-      placeholder="Enter number..."
-      className="w-[200px] text-sm"
-      value={(row?.value as string) || ""}
-      onChange={(e) => updateValue(rowId, e.target.value)}
-    />
-  );
-}
-
-function RangeInput({ rowId }: { rowId: string }) {
-  const { state, updateValue } = useFilterContext();
-  const row = state.rows.find((r) => r.id === rowId);
-  const values = Array.isArray(row?.value) ? row.value : ["", ""];
-
-  return (
-    <div className="flex items-center gap-2">
-      <Input
-        type="number"
-        placeholder="From"
-        className="w-[100px] text-sm"
-        value={values[0]?.toString() || ""}
-        onChange={(e) => updateValue(rowId, [e.target.value, values[1]?.toString() || ""])}
-      />
-      <span className="text-xs text-muted-foreground">to</span>
-      <Input
-        type="number"
-        placeholder="To"
-        className="w-[100px] text-sm"
-        value={values[1]?.toString() || ""}
-        onChange={(e) => updateValue(rowId, [values[0]?.toString() || "", e.target.value])}
-      />
+    <div className="flex items-center justify-between mt-4 pt-4 border-t">
+      <div className="flex items-center space-x-2">
+        <Button variant="ghost" onClick={addRow} disabled={!canAddMore} className="text-sm font-medium">
+          {config.locale?.addFilter || "+ Add filter"}
+        </Button>
+        {config.allowConjunctionToggle && state.rows.length > 1 && (
+          <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-md">
+            <Button
+              variant={state.conjunction === "and" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setConjunction("and")}
+              className="h-7 text-xs px-3"
+            >
+              {config.locale?.and || "AND"}
+            </Button>
+            <Button
+              variant={state.conjunction === "or" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setConjunction("or")}
+              className="h-7 text-xs px-3"
+            >
+              {config.locale?.or || "OR"}
+            </Button>
+          </div>
+        )}
+      </div>
+      <div className="flex space-x-2">
+        <PopoverClose asChild>
+          <Button variant="outline" onClick={reset}>
+            {config.locale?.reset || "Reset"}
+          </Button>
+        </PopoverClose>
+        {hasValidFilters ? (
+          <PopoverClose asChild>
+            <Button onClick={apply}>{config.locale?.apply || "Apply"}</Button>
+          </PopoverClose>
+        ) : (
+          <Button disabled>{config.locale?.apply || "Apply"}</Button>
+        )}
+      </div>
     </div>
   );
 }
+`;
+const TEMPLATE_UI_FILTER_ROOT_TSX = `"use client";
 
-function SelectInput({ rowId }: { rowId: string }) {
-  const { state, updateValue } = useFilterContext();
-  const row = state.rows.find((r) => r.id === rowId);
-  const { options: fetchedOptions } = useFilterOptions(row?.field?.fetchOptions);
-  const options: SelectOption[] = row?.field?.options || fetchedOptions || [];
+import { Filter as FilterIcon } from "lucide-react";
+import { Button } from "__ALIAS__components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "__ALIAS__components/ui/popover";
+import { ScrollArea } from "__ALIAS__components/ui/scroll-area";
+import { useFilterContext } from "../provider/filter-context";
+import { FilterBadge } from "./filter-badge";
+import { FilterFooter } from "./filter-footer";
+import { FilterRowComponent } from "./filter-row";
 
-  return (
-    <Select
-      value={(row?.value as string) || ""}
-      onValueChange={(value) => updateValue(rowId, value)}
-    >
-      <SelectTrigger className="w-[200px] text-sm">
-        <SelectValue placeholder="Select..." />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((opt) => (
-          <SelectItem key={opt.value} value={opt.value}>
-            {opt.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function MultiSelectInput({ rowId }: { rowId: string }) {
-  const { state, updateValue } = useFilterContext();
-  const row = state.rows.find((r) => r.id === rowId);
-  const selectedValues = Array.isArray(row?.value) ? (row.value as string[]) : [];
-  const options: SelectOption[] = row?.field?.options || [];
-
-  const toggleValue = (val: string) => {
-    const newValues = selectedValues.includes(val)
-      ? selectedValues.filter((v) => v !== val)
-      : [...selectedValues, val];
-    updateValue(rowId, newValues);
-  };
+export function FilterRoot() {
+  const { state, config } = useFilterContext();
 
   return (
-    <div className="flex flex-wrap gap-1 max-w-[300px]">
-      {options.map((opt) => (
-        <Badge
-          key={opt.value}
-          variant={selectedValues.includes(opt.value) ? "default" : "outline"}
-          className="cursor-pointer text-xs"
-          onClick={() => toggleValue(opt.value)}
-        >
-          {opt.label}
-        </Badge>
-      ))}
-    </div>
-  );
-}
-
-function DateInput({ rowId }: { rowId: string }) {
-  const { state, updateValue } = useFilterContext();
-  const row = state.rows.find((r) => r.id === rowId);
-  const [open, setOpen] = useState(false);
-  const dateValue = row?.value ? new Date(row.value as string) : undefined;
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="w-[200px] justify-start text-sm font-normal">
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {dateValue ? format(dateValue, "PPP") : "Pick a date"}
+        <Button variant="outline" className="flex items-center gap-2">
+          <FilterIcon className="h-4 w-4" />
+          <span>Filters</span>
+          <FilterBadge />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0">
-        <Calendar
-          mode="single"
-          selected={dateValue}
-          onSelect={(date) => {
-            if (date) {
-              updateValue(rowId, format(date, "yyyy-MM-dd"));
-              setOpen(false);
-            }
-          }}
-        />
+      <PopoverContent className="w-[95vw] sm:w-[720px] p-4" align="end">
+        <ScrollArea className="max-h-[400px] pr-4">
+          <div className="flex flex-col gap-2">
+            {state.rows.length === 0 ? (
+              <div className="text-center py-4 text-muted-foreground">
+                {config.locale?.noFilters || "No filters active"}
+              </div>
+            ) : (
+              state.rows.map((row) => <FilterRowComponent key={row.id} rowId={row.id} />)
+            )}
+          </div>
+        </ScrollArea>
+        <FilterFooter />
       </PopoverContent>
     </Popover>
   );
 }
-
-function DateRangeInput({ rowId }: { rowId: string }) {
-  const { state, updateValue } = useFilterContext();
-  const row = state.rows.find((r) => r.id === rowId);
-  const values = Array.isArray(row?.value) ? row.value : ["", ""];
-
-  return (
-    <div className="flex items-center gap-2">
-      <Input
-        type="date"
-        className="w-[150px] text-sm"
-        value={(values[0] as string) || ""}
-        onChange={(e) => updateValue(rowId, [e.target.value, values[1] as string || ""])}
-      />
-      <span className="text-xs text-muted-foreground">to</span>
-      <Input
-        type="date"
-        className="w-[150px] text-sm"
-        value={(values[1] as string) || ""}
-        onChange={(e) => updateValue(rowId, [values[0] as string || "", e.target.value])}
-      />
-    </div>
-  );
-}
-
-function BooleanInput({ rowId }: { rowId: string }) {
-  const { state, updateValue } = useFilterContext();
-  const row = state.rows.find((r) => r.id === rowId);
-
-  return (
-    <Select
-      value={row?.value?.toString() || ""}
-      onValueChange={(value) => updateValue(rowId, value === "true")}
-    >
-      <SelectTrigger className="w-[120px] text-sm">
-        <SelectValue placeholder="Select..." />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="true">True</SelectItem>
-        <SelectItem value="false">False</SelectItem>
-      </SelectContent>
-    </Select>
-  );
-}
 `;
-  const FILTER_ROW = `"use client";
+const TEMPLATE_UI_FILTER_ROW_TSX = `"use client";
 
 import { Trash2 } from "lucide-react";
-import { Button } from "${alias}components/ui/button";
+import { Button } from "__ALIAS__components/ui/button";
 import { useFilterContext } from "../provider/filter-context";
 import { FieldSelect } from "./field-select";
 import { OperatorSelect } from "./operator-select";
@@ -1063,128 +1010,366 @@ interface FilterRowProps {
 export function FilterRowComponent({ rowId }: FilterRowProps) {
   const { state, removeRow } = useFilterContext();
   const row = state.rows.find((r) => r.id === rowId);
+
   if (!row) return null;
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <FieldSelect rowId={rowId} />
-      {row.field && <OperatorSelect rowId={rowId} />}
-      {row.field && row.operator && <ValueInput rowId={rowId} />}
+    <div className="flex items-center space-x-2 w-full py-2">
+      <FieldSelect rowId={row.id} selectedField={row.field} />
+
+      {row.field && <OperatorSelect rowId={row.id} selectedField={row.field.name} selectedOperator={row.operator} />}
+
+      {row.field && row.operator && (
+        <div className="flex-1 flex max-w-[280px]">
+          <ValueInput rowId={row.id} field={row.field} operator={row.operator} value={row.value} />
+        </div>
+      )}
+
       <Button
         variant="ghost"
         size="icon"
-        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
-        onClick={() => removeRow(rowId)}
+        onClick={() => removeRow(row.id)}
+        className="ml-auto shrink-0"
+        aria-label="Remove filter"
       >
-        <Trash2 className="h-4 w-4" />
+        <Trash2 className="h-4 w-4 text-muted-foreground" />
       </Button>
     </div>
   );
 }
 `;
-  const FILTER_FOOTER = `"use client";
+const TEMPLATE_UI_OPERATOR_SELECT_TSX = `"use client";
 
-import { Plus, RotateCcw, Check } from "lucide-react";
-import { Button } from "${alias}components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "__ALIAS__components/ui/select";
+import { DEFAULT_OPERATORS } from "../constants";
 import { useFilterContext } from "../provider/filter-context";
-import { PopoverClose } from "${alias}components/ui/popover";
-import { isValidFilterRow } from "../helpers/validators";
+import type { OperatorType } from "../types";
 
-export function FilterFooter() {
-  const { config, state, addRow, reset, apply } = useFilterContext();
-  const maxRows = config.maxRows || 10;
-  const canAdd = state.rows.length < maxRows;
+export interface OperatorSelectProps {
+  rowId: string;
+  selectedField: string | null;
+  selectedOperator: OperatorType | null;
+}
 
-  // Determine if there is at least one valid filter row
-  const hasValidFilters = state.rows.some(isValidFilterRow);
+const OPERATOR_LABELS: Record<OperatorType, string> = {
+  is: "is",
+  is_not: "is not",
+  contains: "contains",
+  not_contains: "does not contain",
+  gt: "greater than",
+  gte: "greater or equal",
+  lt: "less than",
+  lte: "less or equal",
+  between: "between",
+  in: "in list",
+  not_in: "not in list",
+  is_empty: "is empty",
+  is_not_empty: "is not empty",
+};
+
+export function OperatorSelect({ rowId, selectedField, selectedOperator }: OperatorSelectProps) {
+  const { config, updateOperator } = useFilterContext();
+
+  const fieldDef = config.fields.find((f) => f.name === selectedField);
+
+  if (!fieldDef) {
+    return (
+      <Select disabled>
+        <SelectTrigger className="w-[160px]">
+          <SelectValue placeholder="Operator" />
+        </SelectTrigger>
+      </Select>
+    );
+  }
+
+  const allowedOperators = fieldDef.operators || DEFAULT_OPERATORS[fieldDef.type] || ["is"];
 
   return (
-    <div className="flex items-center gap-2 pt-2">
-      <Button variant="outline" size="sm" onClick={addRow} disabled={!canAdd}>
-        <Plus className="mr-1 h-4 w-4" />
-        {config.locale?.addFilter || "+ Add filter"}
-      </Button>
-      <PopoverClose asChild>
-        <Button variant="ghost" size="sm" onClick={reset}>
-          <RotateCcw className="mr-1 h-4 w-4" />
-          {config.locale?.reset || "Reset"}
-        </Button>
-      </PopoverClose>
-      {hasValidFilters ? (
-        <PopoverClose asChild>
-          <Button size="sm" onClick={apply}>
-            <Check className="mr-1 h-4 w-4" />
-            {config.locale?.apply || "Apply"}
-          </Button>
-        </PopoverClose>
-      ) : (
-        <Button size="sm" disabled>
-          <Check className="mr-1 h-4 w-4" />
-          {config.locale?.apply || "Apply"}
-        </Button>
-      )}
-    </div>
+    <Select value={selectedOperator || ""} onValueChange={(val) => updateOperator(rowId, val as OperatorType)}>
+      <SelectTrigger className="w-[160px]">
+        <SelectValue placeholder="Select operator..." />
+      </SelectTrigger>
+      <SelectContent>
+        {allowedOperators.map((op) => (
+          <SelectItem key={op} value={op}>
+            {OPERATOR_LABELS[op] || op}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 `;
-  const FILTER_BADGE = `"use client";
+const TEMPLATE_UI_VALUE_INPUT_TSX = `"use client";
 
+import { format } from "date-fns";
+import { CalendarIcon, Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import React from "react";
+import { Button } from "__ALIAS__components/ui/button";
+import { Calendar } from "__ALIAS__components/ui/calendar";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "__ALIAS__components/ui/command";
+import { Input } from "__ALIAS__components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "__ALIAS__components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "__ALIAS__components/ui/select";
+import { cn } from "__ALIAS__lib/utils";
+import { useFilterOptions } from "../hooks/use-filter-options";
 import { useFilterContext } from "../provider/filter-context";
-import { Badge } from "${alias}components/ui/badge";
+import type { FilterFieldDefinition, FilterValue, OperatorType } from "../types";
 
-export function FilterBadge() {
-  const { activeCount } = useFilterContext();
-  if (activeCount === 0) return null;
-  return <Badge variant="secondary">{activeCount} active</Badge>;
+interface ValueInputProps {
+  rowId: string;
+  field: FilterFieldDefinition;
+  operator: OperatorType;
+  value: FilterValue;
 }
-`;
-  const FILTER_ROOT = `"use client";
 
-import { useFilterContext } from "../provider/filter-context";
-import { FilterRowComponent } from "./filter-row";
-import { FilterFooter } from "./filter-footer";
+export function ValueInput({ rowId, field, operator, value }: ValueInputProps) {
+  const { updateValue } = useFilterContext();
 
-export function FilterRoot() {
-  const { state, config } = useFilterContext();
+  if (operator === "is_empty" || operator === "is_not_empty") {
+    return null; // value doesn't matter
+  }
 
-  return (
-    <div className="space-y-3 rounded-lg border p-4">
-      {state.rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {config.locale?.noFilters || "No filters active"}
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {state.rows.map((row, index) => (
-            <div key={row.id} className="flex items-center gap-2">
-              {index > 0 && config.allowConjunctionToggle && (
-                <span className="text-xs font-medium text-muted-foreground w-10 text-center">
-                  {state.conjunction.toUpperCase()}
-                </span>
-              )}
-              {index > 0 && !config.allowConjunctionToggle && (
-                <span className="text-xs font-medium text-muted-foreground w-10 text-center">
-                  {state.conjunction.toUpperCase()}
-                </span>
-              )}
-              <FilterRowComponent rowId={row.id} />
-            </div>
-          ))}
+  const handleChange = (val: FilterValue) => {
+    updateValue(rowId, val);
+  };
+
+  const isDateField = field.type === "date" || field.type === "datetime";
+
+  // Range
+  if (operator === "between") {
+    const valArr = Array.isArray(value) ? value : ["", ""];
+
+    if (isDateField) {
+      return (
+        <div className="flex items-center flex-1 space-x-2">
+          <DatePickerInput
+            value={valArr[0] as string}
+            onChange={(dateStr) => handleChange([dateStr, String(valArr[1])] as FilterValue)}
+            placeholder="Start date"
+          />
+          <span className="text-muted-foreground">-</span>
+          <DatePickerInput
+            value={valArr[1] as string}
+            onChange={(dateStr) => handleChange([String(valArr[0]), dateStr] as FilterValue)}
+            placeholder="End date"
+          />
         </div>
-      )}
-      <FilterFooter />
-    </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center flex-1 space-x-2">
+        <Input
+          type={field.type === "number" ? "number" : "text"}
+          placeholder="Min"
+          value={(valArr[0] as string | number) || ""}
+          onChange={(e) => handleChange([e.target.value, String(valArr[1])] as FilterValue)}
+          className="flex-1 min-w-[80px]"
+        />
+        <span className="text-muted-foreground">-</span>
+        <Input
+          type={field.type === "number" ? "number" : "text"}
+          placeholder="Max"
+          value={(valArr[1] as string | number) || ""}
+          onChange={(e) => handleChange([String(valArr[0]), e.target.value] as FilterValue)}
+          className="flex-1 min-w-[80px]"
+        />
+      </div>
+    );
+  }
+
+  // Boolean
+  if (field.type === "boolean") {
+    return (
+      <Select
+        value={value === true ? "true" : value === false ? "false" : ""}
+        onValueChange={(val) => handleChange(val === "true")}
+      >
+        <SelectTrigger className="flex-1 min-w-[120px]">
+          <SelectValue placeholder="Select..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="true">Yes</SelectItem>
+          <SelectItem value="false">No</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  // Select (Static options)
+  if (field.type === "select" && field.options) {
+    return (
+      <Select value={(value as string) || ""} onValueChange={handleChange}>
+        <SelectTrigger className="flex-1 min-w-[120px]">
+          <SelectValue placeholder="Select option..." />
+        </SelectTrigger>
+        <SelectContent>
+          {field.options.map((opt) => (
+            <SelectItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  // Combobox (Dynamic options)
+  if (field.type === "combobox" && field.fetchOptions) {
+    return <ComboboxValueInput field={field} value={value} onChange={handleChange} />;
+  }
+
+  // Date Picker
+  if (isDateField) {
+    return (
+      <DatePickerInput
+        value={value as string}
+        onChange={handleChange}
+        placeholder="Pick a date"
+        className="flex-1 min-w-[120px]"
+      />
+    );
+  }
+
+  // Default Input (Text, Number)
+  return (
+    <Input
+      type={field.type === "number" ? "number" : "text"}
+      placeholder="Value..."
+      value={(value as string | number) || ""}
+      onChange={(e) => handleChange(e.target.value)}
+      className="flex-1 min-w-[120px]"
+    />
+  );
+}
+
+function DatePickerInput({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  value?: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const date = value ? new Date(value) : undefined;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant={"outline"}
+          className={cn("justify-start text-left font-normal flex-1", !date && "text-muted-foreground", className)}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {date ? format(date, "PPP") : <span>{placeholder}</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={(d) => onChange(d ? format(d, "yyyy-MM-dd") : "")}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ComboboxValueInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: FilterFieldDefinition;
+  value: FilterValue;
+  onChange: (val: FilterValue) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const { options, loading, search } = useFilterOptions(field.fetchOptions);
+
+  const selectedLabel = React.useMemo(() => {
+    if (!value) return "Select...";
+    const opt = options.find((o) => o.value === value);
+    return opt ? opt.label : value;
+  }, [value, options]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="flex-1 min-w-[120px] justify-between font-normal"
+        >
+          {selectedLabel}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput placeholder="Search..." onValueChange={search} />
+          <CommandList>
+            {loading ? (
+              <div className="p-4 text-center text-sm text-muted-foreground flex items-center justify-center">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading...
+              </div>
+            ) : options.length === 0 ? (
+              <CommandEmpty>No results found.</CommandEmpty>
+            ) : (
+              <CommandGroup>
+                {options.map((opt) => (
+                  <CommandItem
+                    key={opt.value}
+                    value={opt.value}
+                    onSelect={() => {
+                      onChange(opt.value);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4", value === opt.value ? "opacity-100" : "opacity-0")} />
+                    {opt.label}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 `;
+export function getTemplateFiles(alias) {
+  const replaceAlias = (content) => content.replaceAll(ALIAS, alias);
   return {
-    "ui/field-select.tsx": FIELD_SELECT,
-    "ui/operator-select.tsx": OPERATOR_SELECT,
-    "ui/value-input.tsx": VALUE_INPUT,
-    "ui/filter-row.tsx": FILTER_ROW,
-    "ui/filter-footer.tsx": FILTER_FOOTER,
-    "ui/filter-badge.tsx": FILTER_BADGE,
-    "ui/filter-root.tsx": FILTER_ROOT,
+    "constants.ts": replaceAlias(TEMPLATE_CONSTANTS_TS),
+    "helpers/operators.ts": replaceAlias(TEMPLATE_HELPERS_OPERATORS_TS),
+    "helpers/query-builder.ts": replaceAlias(TEMPLATE_HELPERS_QUERY_BUILDER_TS),
+    "helpers/serializer.ts": replaceAlias(TEMPLATE_HELPERS_SERIALIZER_TS),
+    "helpers/validators.ts": replaceAlias(TEMPLATE_HELPERS_VALIDATORS_TS),
+    "hooks/use-filter-options.ts": replaceAlias(TEMPLATE_HOOKS_USE_FILTER_OPTIONS_TS),
+    "hooks/use-filter-query.ts": replaceAlias(TEMPLATE_HOOKS_USE_FILTER_QUERY_TS),
+    "hooks/use-filter-state.ts": replaceAlias(TEMPLATE_HOOKS_USE_FILTER_STATE_TS),
+    "hooks/use-filter-url-sync.ts": replaceAlias(TEMPLATE_HOOKS_USE_FILTER_URL_SYNC_TS),
+    "index.ts": replaceAlias(TEMPLATE_INDEX_TS),
+    "provider/filter-context.ts": replaceAlias(TEMPLATE_PROVIDER_FILTER_CONTEXT_TS),
+    "provider/filter-provider.tsx": replaceAlias(TEMPLATE_PROVIDER_FILTER_PROVIDER_TSX),
+    "types.ts": replaceAlias(TEMPLATE_TYPES_TS),
+    "ui/field-select.tsx": replaceAlias(TEMPLATE_UI_FIELD_SELECT_TSX),
+    "ui/filter-badge.tsx": replaceAlias(TEMPLATE_UI_FILTER_BADGE_TSX),
+    "ui/filter-bar.tsx": replaceAlias(TEMPLATE_UI_FILTER_BAR_TSX),
+    "ui/filter-footer.tsx": replaceAlias(TEMPLATE_UI_FILTER_FOOTER_TSX),
+    "ui/filter-root.tsx": replaceAlias(TEMPLATE_UI_FILTER_ROOT_TSX),
+    "ui/filter-row.tsx": replaceAlias(TEMPLATE_UI_FILTER_ROW_TSX),
+    "ui/operator-select.tsx": replaceAlias(TEMPLATE_UI_OPERATOR_SELECT_TSX),
+    "ui/value-input.tsx": replaceAlias(TEMPLATE_UI_VALUE_INPUT_TSX),
   };
 }
 //# sourceMappingURL=index.js.map

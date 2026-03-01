@@ -6,11 +6,7 @@ import { deserializeUrlToFilters, serializeFiltersToUrl } from "../helpers/seria
 import { getValidFilterRows } from "../helpers/validators";
 import type { FilterConfig, FilterState } from "../types";
 
-interface UseFilterUrlSyncOptions {
-  syncMode: "immediate" | "on-apply";
-}
-
-export const useFilterUrlSync = (config: FilterConfig, options: UseFilterUrlSyncOptions) => {
+export const useFilterUrlSync = (config: FilterConfig) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -30,20 +26,38 @@ export const useFilterUrlSync = (config: FilterConfig, options: UseFilterUrlSync
     setSyncedState(deserializeUrlToFilters(params, config));
   }, [searchParams, config]);
 
+  const handleSync = useCallback(
+    (currentState: FilterState) => {
+      // preserve current non-filter params + search param
+      const currentParams = new URLSearchParams(searchParams.toString());
+      const newParams = serializeFiltersToUrl(currentState, config);
+
+      // Keep searchParamName if it exists
+      const searchParamName = config.searchParamName || "q";
+      const currentSearchParam = currentParams.get(searchParamName);
+
+      // We clear all existing filter params (by trusting what serialize gives us)
+      // Then we append any non-filter params back (except what's newly generated)
+      // Simplest approach: create a fresh URLSearchParams, add all from `newParams`,
+      // then add anything from `currentParams` that isn't managed by the filter.
+      // For simplicity, we just keep the search param if provided.
+      if (currentSearchParam) {
+        newParams.set(searchParamName, currentSearchParam);
+      }
+
+      const queryStr = newParams.toString();
+      const newPath = queryStr ? `${pathname}?${queryStr}` : pathname;
+
+      router.push(newPath, { scroll: false });
+    },
+    [config, pathname, router, searchParams],
+  );
+
   const applyChanges = useCallback(
     (newState: FilterState) => {
-      const validState = { ...newState, rows: getValidFilterRows(newState.rows) };
-      const newParams = serializeFiltersToUrl(validState, config);
-
-      // In a real application, you might want to preserve non-filter params like pagination `page=2`.
-      // For this example, we overwrite all or keep non-filter depending on implementation.
-      // Let's assume conditional-filter params prefixing isn't strictly enforced for now.
-      // We just replace.
-      const searchString = newParams.toString();
-      const query = searchString ? `?${searchString}` : "";
-      router.replace(`${pathname}${query}`, { scroll: false });
+      handleSync({ ...newState, rows: getValidFilterRows(newState.rows) });
     },
-    [config, router, pathname],
+    [handleSync],
   );
 
   return {

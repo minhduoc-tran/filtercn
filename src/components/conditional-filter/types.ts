@@ -80,6 +80,10 @@ export interface FilterConfig {
   maxRows?: number;
   /** Param style. Default: underscore */
   paramStyle?: "underscore" | "bracket" | "custom";
+  /** Prefix appended to all query params. e.g "filter_" */
+  paramPrefix?: string;
+  /** Global search query param name. Default: q */
+  searchParamName?: string;
   /** Custom builder */
   customParamBuilder?: (field: string, operator: OperatorType, value: FilterValue) => Record<string, string>;
   /** Locale */

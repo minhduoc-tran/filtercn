@@ -8,24 +8,25 @@ const features = [
   {
     name: "Framework Agnostic",
     description:
-      "Generates queries perfectly suited for popular REST API structures (like underscore or bracket notation) out of the box.",
+      "Generates queries perfectly suited for popular REST API structures out of the box. Supports param prefixes and name spaces.",
     icon: Blocks,
   },
   {
-    name: "Beautifully Styled",
+    name: "Beautiful UI & DatePickers",
     description:
-      "Built on top of Radix UI and styled with Tailwind CSS via shadcn/ui. Fully customizable to match your brand.",
+      "Built on top of Radix UI and styled with Tailwind CSS via shadcn/ui. Comes with an elegant Calendar DatePicker and Debounced Combobox built-in.",
     icon: Pipette,
   },
   {
-    name: "Fully Type-Safe",
-    description: "Written completely in TypeScript. Enjoy robust autocompletion and a fantastic developer experience.",
+    name: "Global Search & Logic",
+    description:
+      "Includes a sleek FilterBar with full-text search, auto-debounce, and a seamless toggle for complex AND/OR conditional statements.",
     icon: ShieldCheck,
   },
   {
-    name: "Highly Performant",
+    name: "URL State Synchronization",
     description:
-      "Optimized state management ensures minimal re-renders, even when dealing with extremely complex filter sets.",
+      "Deeply integrated with Next.js router. Every filter and search query is instantly synced with the URL without unneeded page reloads.",
     icon: Zap,
   },
 ];

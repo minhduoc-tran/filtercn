@@ -22,7 +22,7 @@ export function installDependencies(deps, projectInfo, cwd) {
   try {
     execSync(installCmd, { cwd, stdio: "pipe" });
     logger.success("Dependencies installed.");
-  } catch (error) {
+  } catch (_error) {
     logger.error(`Failed to install dependencies. Run manually:`);
     logger.info(`  ${installCmd}`);
   }

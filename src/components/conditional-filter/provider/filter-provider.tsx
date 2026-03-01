@@ -22,9 +22,7 @@ export const FilterProvider: React.FC<FilterProviderProps> = ({ config, children
     };
   }, [config]);
 
-  const { initialState, applyChanges } = useFilterUrlSync(currentConfig, {
-    syncMode: "on-apply",
-  });
+  const { initialState, applyChanges } = useFilterUrlSync(currentConfig);
 
   const {
     state,

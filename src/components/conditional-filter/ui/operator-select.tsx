@@ -35,7 +35,7 @@ export function OperatorSelect({ rowId, selectedField, selectedOperator }: Opera
   if (!fieldDef) {
     return (
       <Select disabled>
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-[160px]">
           <SelectValue placeholder="Operator" />
         </SelectTrigger>
       </Select>
@@ -46,7 +46,7 @@ export function OperatorSelect({ rowId, selectedField, selectedOperator }: Opera
 
   return (
     <Select value={selectedOperator || ""} onValueChange={(val) => updateOperator(rowId, val as OperatorType)}>
-      <SelectTrigger className="w-[180px]">
+      <SelectTrigger className="w-[160px]">
         <SelectValue placeholder="Select operator..." />
       </SelectTrigger>
       <SelectContent>

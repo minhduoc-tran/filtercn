@@ -56,7 +56,7 @@ Here is a quick example of how to wrap your data table with the filter:
 ```tsx
 "use client";
 
-import { FilterProvider, FilterRoot } from "@/components/conditional-filter";
+import { FilterProvider, FilterBar } from "@/components/conditional-filter";
 import type { FilterFieldDefinition } from "@/components/conditional-filter";
 
 // 1. Define the fields your users can filter by
@@ -72,6 +72,7 @@ const filterFields: FilterFieldDefinition[] = [
     ]
   },
   { name: "price", label: "Budget", type: "number" },
+  { name: "created_at", label: "Created", type: "date" }, // Now supports shadcn Calendar
 ];
 
 export default function MyPage() {
@@ -79,16 +80,30 @@ export default function MyPage() {
     <div className="p-8 space-y-4">
       <h1 className="text-2xl font-bold">Projects</h1>
       
-      {/* 2. Wrap the filter root in the provider */}
-      <FilterProvider config={{ fields: filterFields, paramStyle: "underscore" }}>
-        <FilterRoot />
+      {/* 2. Wrap the toolbar in the provider */}
+      <FilterProvider 
+        config={{ 
+          fields: filterFields, 
+          paramStyle: "underscore",
+          allowConjunctionToggle: true, // Show AND/OR toggle
+          searchParamName: "q" // Global search param tracking
+        }}
+      >
+        <FilterBar searchPlaceholder="Search projects..." />
       </FilterProvider>
 
-      {/* Your data table goes here */}
+      {/* Your data table goes here. It should read from the URL parameters. */}
     </div>
   );
 }
 ```
+
+### New in v0.2.0
+- **Global Search:** `FilterBar` now includes a full-text search input with a built-in 300ms debounce.
+- **Date Pickers:** Date fields now automatically render using the `shadcn/ui` Calendar component.
+- **Param Prefixes:** Use `paramPrefix: "filter_"` in your config to namespace all query params.
+- **AND/OR Conjunction:** Users can now toggle between mapping filters with `AND` or `OR` logic.
+- **Async Comboboxes:** Full debounce support for `useFilterOptions` when fetching dynamic records from your API.
 
 ## Options
 

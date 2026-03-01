@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deserializeUrlToFilters, serializeFiltersToUrl } from "../helpers/serializer";
-import { type FilterConfig, FilterFieldDefinition, type FilterState } from "../types";
+import type { FilterConfig, FilterState } from "../types";
 
 const mockConfig: FilterConfig = {
   fields: [

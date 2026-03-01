@@ -33,7 +33,7 @@ export function FilterRowComponent({ rowId }: FilterRowProps) {
         variant="ghost"
         size="icon"
         onClick={() => removeRow(row.id)}
-        className="ml-auto flex-shrink-0"
+        className="ml-auto shrink-0"
         aria-label="Remove filter"
       >
         <Trash2 className="h-4 w-4 text-muted-foreground" />

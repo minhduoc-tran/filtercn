@@ -82,21 +82,45 @@ const fields: FilterFieldDefinition[] = [
     ] 
   },
   { name: "price", label: "Price", type: "number" },
-  { name: "created_at", label: "Created At", type: "date" }
+  { name: "created_at", label: "Created At", type: "date" } // Automatically renders Calendar
 ];
 ```
 
-Wrap your Application or Table with the Provider:
+Wrap your Application or Table with the Provider, and use `FilterBar` for a complete search/filter experience:
 
 ```tsx
-import { FilterProvider, FilterRoot } from "@/components/conditional-filter";
+import { FilterProvider, FilterBar } from "@/components/conditional-filter";
 
 export default function DataPage() {
   return (
-    <FilterProvider config={{ fields, paramStyle: "underscore" }}>
-      <FilterRoot />
+    <FilterProvider config={{ 
+      fields, 
+      paramStyle: "underscore",
+      allowConjunctionToggle: true, // Enables AND/OR toggle
+      paramPrefix: "filter_", // Optional: prefixes URL params (e.g. filter_price__gte=100)
+      searchParamName: "q" // Synchronizes search input with the "q" URL param
+    }}>
+      <FilterBar searchPlaceholder="Search products..." />
     </FilterProvider>
   );
+}
+```
+
+## Advanced Usage
+
+FilterCN exports helpful hooks for interacting with the filter state:
+
+```tsx
+import { useFilterQuery } from "@/components/conditional-filter";
+
+export function TableVisualizer() {
+  // Extract parsed query parameters and the number of active filters
+  const { queryParams, activeCount } = useFilterQuery();
+  
+  // queryParams object ready for REST API calls!
+  // e.g., { status__in: "active,draft", price__gte: 100 }
+  
+  return <div>Active Filters: {activeCount}</div>;
 }
 ```
 

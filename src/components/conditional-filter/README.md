@@ -98,20 +98,19 @@ const myFields: FilterFieldDefinition[] = [
 Next, use the `FilterProvider` to wrap the filter component, and pass the configuration to it.
 
 ```tsx
-import { FilterProvider, FilterRoot } from "@/components/conditional-filter";
+import { FilterProvider, FilterBar } from "@/components/conditional-filter";
 
-export default function MyPage() {
+export default function DataPage() {
   return (
     <div className="p-8 max-w-4xl mx-auto">
-      <FilterProvider 
-        config={{ 
-          fields: myFields, 
-          // Set serializing style: "underscore", "bracket", or "custom"
-          paramStyle: "underscore" 
-        }}
-      >
-        <FilterRoot />
+      <h1>My Products</h1>
+      
+      {/* Wrap your application with the context provider and render the Filter component */}
+      <FilterProvider config={{ fields: myFields, paramStyle: "underscore" }}>
+        <FilterBar searchPlaceholder="Search products..." />
       </FilterProvider>
+      
+      {/* ... your data table reading from URL Search Params ... */}
     </div>
   );
 }

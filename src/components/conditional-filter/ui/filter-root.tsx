@@ -21,7 +21,7 @@ export function FilterRoot() {
           <FilterBadge />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[850px] p-4" align="start">
+      <PopoverContent className="w-[95vw] sm:w-[720px] p-4" align="end">
         <ScrollArea className="max-h-[400px] pr-4">
           <div className="flex flex-col gap-2">
             {state.rows.length === 0 ? (

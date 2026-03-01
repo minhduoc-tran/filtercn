@@ -1,9 +1,9 @@
-import fs from "fs";
+import fs from "node:fs";
+import path from "node:path";
 import GithubSlugger from "github-slugger";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import path from "path";
 import { allDocPages } from "@/config/docs-nav";
 
 // --- Dynamic imports for each MDX doc ---

@@ -15,7 +15,8 @@
     "test": "vitest",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "build:cli:templates": "node build-templates.mjs"
   },
   "dependencies": {
     "@mdx-js/loader": "^3.1.1",

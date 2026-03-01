@@ -17,6 +17,7 @@ export const buildRestQuery = (rows: FilterRow[], config: FilterConfig): RestQue
 
     const style = config.paramStyle || "underscore";
     const suffix = getOperatorSuffix(row.operator, style);
+    const prefix = config.paramPrefix || "";
 
     let paramKey = row.field.name;
     if (style === "underscore" && suffix) {
@@ -25,6 +26,10 @@ export const buildRestQuery = (rows: FilterRow[], config: FilterConfig): RestQue
       paramKey = `filter[${row.field.name}]${suffix}`;
     } else if (style === "bracket" && !suffix) {
       paramKey = `filter[${row.field.name}]`;
+    }
+
+    if (prefix) {
+      paramKey = `${prefix}${paramKey}`;
     }
 
     let paramValue: string | string[];

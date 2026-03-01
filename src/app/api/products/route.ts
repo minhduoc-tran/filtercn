@@ -97,8 +97,15 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   let filtered = [...mockProducts];
 
+  // Global search from FilterBar
+  const q = searchParams.get("q");
+  if (q) {
+    filtered = filtered.filter((p) => p.name.toLowerCase().includes(q.toLowerCase()));
+  }
+
   // Underscore-style simple parser
   for (const [key, value] of searchParams.entries()) {
+    if (key === "q") continue;
     // Exact match: ?status=active
     if (key === "status") {
       filtered = filtered.filter((p) => p.status === value);

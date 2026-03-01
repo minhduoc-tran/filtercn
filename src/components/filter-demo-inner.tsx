@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { deserializeUrlToFilters } from "@/components/conditional-filter/helpers/serializer";
 import { FilterProvider } from "@/components/conditional-filter/provider/filter-provider";
 import type { FilterConfig } from "@/components/conditional-filter/types";
-import { FilterRoot } from "@/components/conditional-filter/ui/filter-root";
+import { FilterBar } from "@/components/conditional-filter/ui/filter-bar";
 
 const demoConfig: FilterConfig = {
   allowConjunctionToggle: true,
@@ -41,8 +41,14 @@ export function FilterDemoInner() {
 
   // Basic mock filtering engine to mimic a backend evaluating the filters
   const state = deserializeUrlToFilters(new URLSearchParams(searchParams.toString()), demoConfig);
+  const searchQuery = searchParams.get(demoConfig.searchParamName || "q") || "";
 
   const filteredData = MOCK_DATA.filter((item) => {
+    // Global text search
+    if (searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+
     if (state.rows.length === 0) return true;
 
     // Evaluate each row
@@ -102,7 +108,7 @@ export function FilterDemoInner() {
             <div className="h-4 w-16 rounded bg-zinc-200 dark:bg-zinc-700" />
           </div>
           <FilterProvider config={demoConfig}>
-            <FilterRoot />
+            <FilterBar searchPlaceholder="Search data..." />
           </FilterProvider>
         </div>
 

@@ -4,7 +4,7 @@ import { Github } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { type FilterFieldDefinition, FilterProvider, FilterRoot } from "@/components/conditional-filter";
+import { FilterBar, type FilterFieldDefinition, FilterProvider } from "@/components/conditional-filter";
 import { Faq } from "@/features/landing/faq";
 import { Features } from "@/features/landing/features";
 import { Hero } from "@/features/landing/hero";
@@ -77,8 +77,10 @@ function FilterDemo() {
             {data ? `Showing ${data.count} of ${data.total} products` : "Loading..."}
           </p>
         </div>
-        <FilterProvider config={{ fields: productFields, paramStyle: "underscore", maxRows: 5 }}>
-          <FilterRoot />
+        <FilterProvider
+          config={{ fields: productFields, paramStyle: "underscore", maxRows: 5, allowConjunctionToggle: true }}
+        >
+          <FilterBar className="w-full sm:w-auto min-w-[320px]" searchPlaceholder="Search models..." />
         </FilterProvider>
       </div>
 

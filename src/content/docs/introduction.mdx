@@ -24,18 +24,25 @@ Install in seconds with the CLI:
 Then wrap your page with `FilterProvider`:
 
 ```tsx
-import { FilterProvider, FilterRoot } from "@/components/conditional-filter";
+import { FilterProvider, FilterBar } from "@/components/conditional-filter";
 
 const fields = [
   { name: "status", label: "Status", type: "select", options: [...] },
   { name: "price",  label: "Price",  type: "number" },
 ];
 
-export default function MyPage() {
+export default function DataPage() {
   return (
-    <FilterProvider config={{ fields, paramStyle: "underscore" }}>
-      <FilterRoot />
-    </FilterProvider>
+    <div className="p-8">
+      <h1>My Products</h1>
+      
+      {/* 2. Wrap your application with the context provider and render the Bar */}
+      <FilterProvider config={{ fields, paramStyle: "underscore" }}>
+        <FilterBar searchPlaceholder="Filter products..." />
+      </FilterProvider>
+      
+      {/* ... your data table reading from URL Search Params ... */}
+    </div>
   );
 }
 ```

@@ -1,8 +1,10 @@
 "use client";
 
-import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { format } from "date-fns";
+import { CalendarIcon, Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import React from "react";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -30,13 +32,34 @@ export function ValueInput({ rowId, field, operator, value }: ValueInputProps) {
     updateValue(rowId, val);
   };
 
+  const isDateField = field.type === "date" || field.type === "datetime";
+
   // Range
   if (operator === "between") {
     const valArr = Array.isArray(value) ? value : ["", ""];
+
+    if (isDateField) {
+      return (
+        <div className="flex items-center flex-1 space-x-2">
+          <DatePickerInput
+            value={valArr[0] as string}
+            onChange={(dateStr) => handleChange([dateStr, String(valArr[1])] as FilterValue)}
+            placeholder="Start date"
+          />
+          <span className="text-muted-foreground">-</span>
+          <DatePickerInput
+            value={valArr[1] as string}
+            onChange={(dateStr) => handleChange([String(valArr[0]), dateStr] as FilterValue)}
+            placeholder="End date"
+          />
+        </div>
+      );
+    }
+
     return (
       <div className="flex items-center flex-1 space-x-2">
         <Input
-          type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
+          type={field.type === "number" ? "number" : "text"}
           placeholder="Min"
           value={(valArr[0] as string | number) || ""}
           onChange={(e) => handleChange([e.target.value, String(valArr[1])] as FilterValue)}
@@ -44,7 +67,7 @@ export function ValueInput({ rowId, field, operator, value }: ValueInputProps) {
         />
         <span className="text-muted-foreground">-</span>
         <Input
-          type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
+          type={field.type === "number" ? "number" : "text"}
           placeholder="Max"
           value={(valArr[1] as string | number) || ""}
           onChange={(e) => handleChange([String(valArr[0]), e.target.value] as FilterValue)}
@@ -95,15 +118,63 @@ export function ValueInput({ rowId, field, operator, value }: ValueInputProps) {
     return <ComboboxValueInput field={field} value={value} onChange={handleChange} />;
   }
 
-  // Default Input (Text, Number, Date)
+  // Date Picker
+  if (isDateField) {
+    return (
+      <DatePickerInput
+        value={value as string}
+        onChange={handleChange}
+        placeholder="Pick a date"
+        className="flex-1 min-w-[120px]"
+      />
+    );
+  }
+
+  // Default Input (Text, Number)
   return (
     <Input
-      type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
+      type={field.type === "number" ? "number" : "text"}
       placeholder="Value..."
       value={(value as string | number) || ""}
       onChange={(e) => handleChange(e.target.value)}
       className="flex-1 min-w-[120px]"
     />
+  );
+}
+
+function DatePickerInput({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  value?: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const date = value ? new Date(value) : undefined;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant={"outline"}
+          className={cn("justify-start text-left font-normal flex-1", !date && "text-muted-foreground", className)}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {date ? format(date, "PPP") : <span>{placeholder}</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={(d) => onChange(d ? format(d, "yyyy-MM-dd") : "")}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
 

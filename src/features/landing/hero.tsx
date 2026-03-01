@@ -59,8 +59,8 @@ export function Hero() {
           variants={itemVariants}
           className="mx-auto max-w-[700px] text-lg sm:text-xl text-zinc-600 dark:text-zinc-400"
         >
-          A highly customizable, framework-agnostic, and type-safe filtering component built for modern web
-          applications. Drop it in and let your users find exactly what they need.
+          A highly customizable, URL-driven filtering component built for modern web applications. Packed with Global
+          Search, DatePickers, and Debounced Async Selects. Drop it in and let your users find exactly what they need.
         </motion.p>
 
         <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mt-4">
