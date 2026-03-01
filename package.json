@@ -1,7 +1,26 @@
 {
-  "name": "project-base-setup",
-  "version": "0.1.0",
+  "name": "filtercn",
+  "version": "0.2.2",
   "private": true,
+  "description": "A powerful, headless conditional filter component for Next.js and React",
+  "author": "FilterCN",
+  "license": "MIT",
+  "homepage": "https://filtercn.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/duoctong/filtercn.git"
+  },
+  "bugs": {
+    "url": "https://github.com/duoctong/filtercn/issues"
+  },
+  "keywords": [
+    "react",
+    "nextjs",
+    "shadcn",
+    "filter",
+    "conditional-filter",
+    "ui"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
