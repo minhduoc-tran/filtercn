@@ -4,7 +4,7 @@ import fs from "fs-extra";
 import { logger } from "./logger.js";
 
 const PEER_DEPENDENCIES = ["lucide-react", "date-fns"];
-const SHADCN_COMPONENTS = ["button", "input", "select", "popover", "calendar", "command", "badge"];
+const SHADCN_COMPONENTS = ["button", "input", "select", "popover", "calendar", "command", "badge", "scroll-area"];
 export function checkPeerDependencies(cwd) {
   const pkgPath = path.join(cwd, "package.json");
   if (!fs.existsSync(pkgPath)) return PEER_DEPENDENCIES;

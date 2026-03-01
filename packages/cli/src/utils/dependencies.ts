@@ -6,7 +6,7 @@ import { logger } from "./logger.js";
 
 const PEER_DEPENDENCIES = ["lucide-react", "date-fns"];
 
-const SHADCN_COMPONENTS = ["button", "input", "select", "popover", "calendar", "command", "badge"];
+const SHADCN_COMPONENTS = ["button", "input", "select", "popover", "calendar", "command", "badge", "scroll-area"];
 
 export function checkPeerDependencies(cwd: string): string[] {
   const pkgPath = path.join(cwd, "package.json");

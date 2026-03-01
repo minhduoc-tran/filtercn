@@ -1,6 +1,6 @@
 {
   "name": "filtercn",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "CLI to scaffold the FilterCN conditional filter component into your Next.js + shadcn/ui project",
   "type": "module",
   "bin": {

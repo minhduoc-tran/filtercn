@@ -7,6 +7,7 @@ import { checkPeerDependencies, getShadcnInstallHint, installDependencies } from
 import { detectProject } from "../utils/detect-project.js";
 import { writeAllTemplates } from "../utils/file-writer.js";
 import { logger } from "../utils/logger.js";
+import { patchPopoverClose } from "../utils/patch-popover.js";
 
 interface InitOptions {
   force: boolean;
@@ -94,6 +95,10 @@ export async function initCommand(options: InitOptions) {
   console.log("");
   console.log(chalk.dim("  ") + chalk.cyan(getShadcnInstallHint(projectInfo.packageManager)));
   console.log("");
+
+  // Step 6: Patch popover.tsx to export PopoverClose (required by FilterCN)
+  logger.break();
+  patchPopoverClose(projectInfo, cwd);
 
   // Done!
   logger.break();
