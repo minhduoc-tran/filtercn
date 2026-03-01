@@ -57,6 +57,8 @@ jobs:
     name: Deploy to Vercel
     needs: build-and-test
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'http://localhost:3000' }}
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     steps:
       - name: Checkout Repository
@@ -69,6 +71,9 @@ jobs:
 
       - name: Install Vercel CLI
         run: pnpm install --global vercel@latest
+
+      - name: Enable Corepack for Vercel
+        run: corepack enable
 
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
