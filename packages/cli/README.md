@@ -1,6 +1,6 @@
 # FilterCN CLI
 
-The official CLI tool to automatically install the [FilterCN](https://github.com/tmduoc/filtercn) component into your Next.js project.
+The official CLI tool to automatically install the [FilterCN](https://github.com/minhduoc-tran/filtercn) component into your Next.js project.
 
 FilterCN is a comprehensive, fully-customizable filter component built on top of [shadcn/ui](https://ui.shadcn.com/). It provides a visual filter builder UI that syncs state to URL search parameters, ideal for REST API-powered data tables.
 

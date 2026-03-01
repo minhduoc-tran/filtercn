@@ -5,9 +5,9 @@
     <strong>A highly customizable, framework-agnostic, and type-safe conditional filter component.</strong>
   </p>
   <p>
-    <a href="https://github.com/tmduoc/filtercn">Explore the docs</a> ·
-    <a href="https://github.com/tmduoc/filtercn/issues">Report Bug</a> ·
-    <a href="https://github.com/tmduoc/filtercn/issues">Request Feature</a>
+    <a href="https://github.com/minhduoc-tran/filtercn">Explore the docs</a> ·
+    <a href="https://github.com/minhduoc-tran/filtercn/issues">Report Bug</a> ·
+    <a href="https://github.com/minhduoc-tran/filtercn/issues">Request Feature</a>
   </p>
   <br />
 </div>
@@ -137,7 +137,7 @@ If you wish to contribute to the FilterCN project, or interact with the demo loc
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/tmduoc/filtercn.git
+git clone https://github.com/minhduoc-tran/filtercn.git
 
 # 2. Navigate to directory
 cd filtercn

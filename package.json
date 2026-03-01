@@ -8,10 +8,10 @@
   "homepage": "https://filtercn.vercel.app",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/duoctong/filtercn.git"
+    "url": "git+https://github.com/minhduoc-tran/filtercn.git"
   },
   "bugs": {
-    "url": "https://github.com/duoctong/filtercn/issues"
+    "url": "https://github.com/minhduoc-tran/filtercn/issues"
   },
   "keywords": [
     "react",

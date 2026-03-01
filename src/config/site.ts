@@ -7,7 +7,7 @@ export const siteConfig = {
   description:
     "FilterCN is a type-safe, customizable conditional filter component for Next.js and React with URL synchronization, global search, and CLI-based setup.",
   url: "https://filtercn.vercel.app",
-  repoUrl: "https://github.com/tmduoc/filtercn",
+  repoUrl: "https://github.com/minhduoc-tran/filtercn",
   creator: "tmduoc",
   keywords: [
     "FilterCN",
