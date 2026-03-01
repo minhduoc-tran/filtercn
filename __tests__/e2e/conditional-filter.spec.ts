@@ -124,4 +124,63 @@ test.describe("Conditional Filter Component", () => {
     // Ensure the search input still retains its value
     await expect(searchInput).toHaveValue("shoes");
   });
+
+  test("should apply 'is not' filter and exclude matching rows", async ({ page }) => {
+    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { name: "+ Add filter" }).click();
+
+    // Select "Status" field
+    await page.getByRole("combobox").first().click();
+    await page.getByRole("option", { name: "Status" }).click();
+
+    // Change operator to "is not" (use exact match to distinguish from "is not empty")
+    await page.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "is not", exact: true }).click();
+
+    // Select "Active" as the value
+    await page.getByRole("combobox").nth(2).click();
+    await page.getByRole("option", { name: /active/i }).click();
+
+    // Apply
+    await page.getByRole("button", { name: "Apply" }).click();
+
+    // Verify URL contains the negation param
+    await expect(page).toHaveURL(/status__not=active/);
+
+    // Wait for table data to refresh
+    await expect(page.getByText(/Showing \d+ of \d+ products/)).toBeVisible();
+    // Wait a beat for data to settle
+    await page.waitForTimeout(800);
+
+    // Verify the filtered count (should be 3 draft products out of 10)
+    await expect(page.getByText("Showing 3 of 10 products")).toBeVisible();
+  });
+
+  test("should apply 'not contains' text filter and exclude matching rows", async ({ page }) => {
+    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { name: "+ Add filter" }).click();
+
+    // Select "Name" field
+    await page.getByRole("combobox").first().click();
+    await page.getByRole("option", { name: "Name" }).click();
+
+    // Change operator to "does not contain"
+    await page.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "does not contain", exact: true }).click();
+
+    // Type value
+    await page.getByRole("textbox").fill("Shirt");
+
+    // Apply
+    await page.getByRole("button", { name: "Apply" }).click();
+
+    // Verify URL
+    await expect(page).toHaveURL(/name__not_icontains=Shirt/);
+
+    // Wait for table data to refresh
+    await page.waitForTimeout(800);
+
+    // Verify filtered count (should exclude T-Shirt Basic and Polo Shirt = 8 products)
+    await expect(page.getByText(/Showing \d+ of \d+ products/)).toBeVisible();
+  });
 });

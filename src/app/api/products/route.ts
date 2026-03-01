@@ -109,12 +109,21 @@ export async function GET(request: Request) {
     // Exact match: ?status=active
     if (key === "status") {
       filtered = filtered.filter((p) => p.status === value);
+    } else if (key === "status__not") {
+      filtered = filtered.filter((p) => p.status !== value);
     } else if (key === "category") {
       filtered = filtered.filter((p) => p.category === value);
+    } else if (key === "category__not") {
+      filtered = filtered.filter((p) => p.category !== value);
+    } else if (key === "category__not_in") {
+      const categories = value.split(",");
+      filtered = filtered.filter((p) => !categories.includes(p.category));
     }
     // Boolean match
     else if (key === "is_published") {
       filtered = filtered.filter((p) => p.is_published === (value === "true"));
+    } else if (key === "is_published__not") {
+      filtered = filtered.filter((p) => p.is_published !== (value === "true"));
     }
     // Partial Match: ?name__icontains=shirt
     else if (key === "name__icontains") {
@@ -134,6 +143,8 @@ export async function GET(request: Request) {
     // Number exact: ?price=100
     else if (key === "price") {
       filtered = filtered.filter((p) => p.price === Number(value));
+    } else if (key === "price__not") {
+      filtered = filtered.filter((p) => p.price !== Number(value));
     }
     // Date ranges
     else if (key === "created_at__gte") {
