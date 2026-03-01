@@ -10,6 +10,8 @@ jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'http://localhost:3000' }}
 
     steps:
       - name: Checkout Repository
@@ -37,8 +39,6 @@ jobs:
 
       - name: Build Next.js App
         run: pnpm run build
-        env:
-          NEXT_PUBLIC_APP_URL: "https://filtercn.vercel.app"
 
       - name: Build CLI Templates
         run: pnpm run build:cli:templates
