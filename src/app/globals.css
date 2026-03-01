@@ -184,7 +184,7 @@
 }
 
 /* Inline code inside prose */
-.prose :not(pre) > code {
+.prose :where(code):not(:where(pre *)) {
   border-radius: 0.25rem;
   border: 1px solid hsl(var(--border));
   background: hsl(var(--muted));
@@ -194,3 +194,8 @@
   font-weight: 500;
 }
 
+.prose :where(code):not(:where(pre *))::before,
+.prose :where(code):not(:where(pre *))::after {
+  --tw-content: none;
+  content: none !important;
+}

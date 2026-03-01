@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { allDocPages } from "@/config/docs-nav";
+import { siteConfig } from "@/config/site";
 
 // --- Dynamic imports for each MDX doc ---
 const docModules: Record<string, () => Promise<{ default: React.ComponentType }>> = {
@@ -50,7 +51,31 @@ function extractToc(content: string): TocItem[] {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const page = allDocPages.find((p) => p.slug === slug);
-  return { title: page ? `${page.title} | FilterCN Docs` : "Docs | FilterCN" };
+  const title = page?.title ?? "Docs";
+  const description = page
+    ? `${page.title} guide for ${siteConfig.name}: setup, usage patterns, and API references.`
+    : `Documentation for ${siteConfig.name}.`;
+  const canonicalPath = page ? `/docs/${page.slug}` : "/docs";
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: canonicalPath,
+    },
+    openGraph: {
+      title,
+      description,
+      type: "article",
+      url: canonicalPath,
+      siteName: siteConfig.name,
+    },
+    twitter: {
+      card: "summary",
+      title,
+      description,
+    },
+  };
 }
 
 // --- Static params for pre-rendering ---

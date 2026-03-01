@@ -1,5 +1,19 @@
+import type { Metadata } from "next";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { siteConfig } from "@/config/site";
+
+export const metadata: Metadata = {
+  title: {
+    default: `Documentation | ${siteConfig.name}`,
+    template: `%s | ${siteConfig.name} Docs`,
+  },
+  description:
+    "Official FilterCN documentation, including installation guides, API configuration, field definitions, and usage examples.",
+  alternates: {
+    canonical: "/docs",
+  },
+};
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
   return (

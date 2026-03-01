@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Github } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { siteConfig } from "@/config/site";
 
 export function Hero() {
   const containerVariants = {
@@ -39,8 +40,7 @@ export function Hero() {
             variant="outline"
             className="px-3 py-1 text-sm font-medium bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
           >
-            <span className="flex h-2 w-2 rounded-full bg-indigo-500 mr-2"></span>
-            v1.0 is now live
+            <span className="flex h-2 w-2 rounded-full bg-indigo-500 mr-2"></span>v{siteConfig.version} is now live
           </Badge>
         </motion.div>
 
@@ -74,7 +74,7 @@ export function Hero() {
             Try the Demo <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
           <Button variant="outline" size="lg" className="px-8 shadow-sm" asChild>
-            <a href="https://github.com" target="_blank" rel="noreferrer">
+            <a href={siteConfig.repoUrl} target="_blank" rel="noreferrer">
               <Github className="mr-2 h-4 w-4" /> GitHub
             </a>
           </Button>

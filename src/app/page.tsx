@@ -3,8 +3,11 @@
 import { Github } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import Script from "next/script";
 import { Suspense, useEffect, useState } from "react";
 import { FilterBar, type FilterFieldDefinition, FilterProvider } from "@/components/conditional-filter";
+import { Logo } from "@/components/logo";
+import { siteConfig } from "@/config/site";
 import { Faq } from "@/features/landing/faq";
 import { Features } from "@/features/landing/features";
 import { Hero } from "@/features/landing/hero";
@@ -125,16 +128,36 @@ function FilterDemo() {
 }
 
 export default function Home() {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: siteConfig.name,
+    applicationCategory: "DeveloperApplication",
+    operatingSystem: "Web",
+    description: siteConfig.description,
+    url: siteConfig.url,
+    version: siteConfig.version,
+    codeRepository: siteConfig.repoUrl,
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-zinc-50 font-sans dark:bg-black selection:bg-indigo-500/30">
+      <Script id="home-structured-data" type="application/ld+json">
+        {JSON.stringify(structuredData)}
+      </Script>
+
       {/* Simple Header */}
       <header className="sticky top-0 z-50 w-full border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-black/80 backdrop-blur">
         <div className="container px-4 md:px-6 mx-auto flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="h-6 w-6 rounded-md bg-indigo-500 flex items-center justify-center">
-              <span className="text-white text-xs font-bold w-3 h-3 block border-t-2 border-l-2 border-white rounded-tl-sm opacity-80" />
-            </span>
-            <span className="font-bold tracking-tight">FilterCN</span>
+          <div className="flex items-center gap-6">
+            <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-90">
+              <Logo />
+            </Link>
           </div>
           <nav className="flex items-center gap-4 text-sm font-medium">
             <Link href="/docs" className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50">
@@ -156,7 +179,7 @@ export default function Home() {
               Install
             </a>
             <a
-              href="https://github.com"
+              href={siteConfig.repoUrl}
               target="_blank"
               rel="noreferrer"
               className="text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors"
@@ -235,20 +258,20 @@ export default function Home() {
               Documentation
             </Link>
             <a
-              href="https://twitter.com"
+              href="https://github.com/tmduoc"
               target="_blank"
               rel="noreferrer"
               className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
             >
-              Twitter
+              Author
             </a>
             <a
-              href="https://github.com"
+              href={siteConfig.repoUrl}
               target="_blank"
               rel="noreferrer"
               className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
             >
-              GitHub
+              Repository
             </a>
           </div>
         </div>
