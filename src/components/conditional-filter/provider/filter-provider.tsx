@@ -3,7 +3,7 @@
 import type React from "react";
 import { useCallback, useMemo } from "react";
 import { DEFAULT_LOCALE } from "../constants";
-import { getValidFilterRows, isValidFilterRow } from "../helpers/validators";
+import { countValidRows } from "../helpers/validators";
 import { useFilterState } from "../hooks/use-filter-state";
 import { useFilterUrlSync } from "../hooks/use-filter-url-sync";
 import type { FilterConfig } from "../types";
@@ -32,12 +32,15 @@ export const FilterProvider: React.FC<FilterProviderProps> = ({ config, children
     updateOperator,
     updateValue,
     setConjunction,
+    addGroup,
+    removeGroup,
     reset: localReset,
+    getGroupDepth,
   } = useFilterState(initialState);
 
-  const isValid = useMemo(() => state.rows.every(isValidFilterRow), [state.rows]);
+  const isValid = useMemo(() => countValidRows(state.root) > 0, [state.root]);
 
-  const activeCount = useMemo(() => getValidFilterRows(state.rows).length, [state.rows]);
+  const activeCount = useMemo(() => countValidRows(state.root), [state.root]);
 
   const apply = useCallback(() => {
     applyChanges(state);
@@ -45,7 +48,7 @@ export const FilterProvider: React.FC<FilterProviderProps> = ({ config, children
 
   const reset = useCallback(() => {
     localReset();
-    applyChanges({ rows: [], conjunction: "and" });
+    applyChanges({ root: { id: "reset", conjunction: "and", children: [] } });
   }, [localReset, applyChanges]);
 
   const value = useMemo(
@@ -58,10 +61,13 @@ export const FilterProvider: React.FC<FilterProviderProps> = ({ config, children
       updateOperator,
       updateValue,
       setConjunction,
+      addGroup,
+      removeGroup,
       reset,
       isValid,
       activeCount,
       apply,
+      getGroupDepth,
     }),
     [
       currentConfig,
@@ -72,10 +78,13 @@ export const FilterProvider: React.FC<FilterProviderProps> = ({ config, children
       updateOperator,
       updateValue,
       setConjunction,
+      addGroup,
+      removeGroup,
       reset,
       isValid,
       activeCount,
       apply,
+      getGroupDepth,
     ],
   );
 

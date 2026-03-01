@@ -2,12 +2,14 @@
 
 import { useSearchParams } from "next/navigation";
 import { deserializeUrlToFilters } from "@/components/conditional-filter/helpers/serializer";
+import { isValidFilterRow } from "@/components/conditional-filter/helpers/validators";
 import { FilterProvider } from "@/components/conditional-filter/provider/filter-provider";
-import type { FilterConfig } from "@/components/conditional-filter/types";
+import type { FilterConfig, FilterGroup, FilterRow } from "@/components/conditional-filter/types";
 import { FilterBar } from "@/components/conditional-filter/ui/filter-bar";
 
 const demoConfig: FilterConfig = {
   allowConjunctionToggle: true,
+  allowGrouping: true,
   fields: [
     {
       name: "status",
@@ -36,10 +38,68 @@ const MOCK_DATA = [
   { name: "Hooli App", status: "banned", price: 10, created_at: "2024-04-10", is_verified: false },
 ];
 
+/** Evaluate a single row against an item */
+function evaluateRow(row: FilterRow, item: Record<string, unknown>): boolean | null {
+  if (!row.field || !row.operator) return null;
+  if (row.operator !== "is_empty" && row.operator !== "is_not_empty" && row.value === null) return null;
+
+  const itemVal = item[row.field.name];
+  try {
+    switch (row.operator) {
+      case "is":
+        return String(itemVal) === String(row.value);
+      case "is_not":
+        return String(itemVal) !== String(row.value);
+      case "contains":
+        return String(itemVal).toLowerCase().includes(String(row.value).toLowerCase());
+      case "not_contains":
+        return !String(itemVal).toLowerCase().includes(String(row.value).toLowerCase());
+      case "gt":
+        return Number(itemVal) > Number(row.value);
+      case "gte":
+        return Number(itemVal) >= Number(row.value);
+      case "lt":
+        return Number(itemVal) < Number(row.value);
+      case "lte":
+        return Number(itemVal) <= Number(row.value);
+      case "is_empty":
+        return itemVal === null || itemVal === "" || itemVal === undefined;
+      case "is_not_empty":
+        return itemVal !== null && itemVal !== "" && itemVal !== undefined;
+      default:
+        return true;
+    }
+  } catch {
+    return true;
+  }
+}
+
+/** Recursively evaluate a group against an item, respecting nested AND/OR */
+function evaluateGroup(group: FilterGroup, item: Record<string, unknown>): boolean {
+  const results: boolean[] = [];
+
+  for (const child of group.children) {
+    if (child.type === "row") {
+      if (!isValidFilterRow(child.row)) continue;
+      const result = evaluateRow(child.row, item);
+      if (result !== null) results.push(result);
+    } else if (child.type === "group") {
+      // Recursively evaluate sub-group
+      results.push(evaluateGroup(child.group, item));
+    }
+  }
+
+  if (results.length === 0) return true; // No valid filters → pass
+
+  if (group.conjunction === "or") {
+    return results.some((r) => r);
+  }
+  return results.every((r) => r);
+}
+
 export function FilterDemoInner() {
   const searchParams = useSearchParams();
 
-  // Basic mock filtering engine to mimic a backend evaluating the filters
   const state = deserializeUrlToFilters(new URLSearchParams(searchParams.toString()), demoConfig);
   const searchQuery = searchParams.get(demoConfig.searchParamName || "q") || "";
 
@@ -49,53 +109,8 @@ export function FilterDemoInner() {
       return false;
     }
 
-    if (state.rows.length === 0) return true;
-
-    // Evaluate each row
-    const rowResults = state.rows
-      .map((row) => {
-        if (!row.field || !row.operator) return null;
-        if (row.operator !== "is_empty" && row.operator !== "is_not_empty" && row.value === null) return null;
-
-        const { name } = row.field;
-        const { operator, value } = row;
-        const itemVal = item[name as keyof typeof item];
-
-        // Extremely basic evaluation for the demo
-        try {
-          switch (operator) {
-            case "is":
-              return String(itemVal) === String(value);
-            case "is_not":
-              return String(itemVal) !== String(value);
-            case "contains":
-              return String(itemVal).toLowerCase().includes(String(value).toLowerCase());
-            case "not_contains":
-              return !String(itemVal).toLowerCase().includes(String(value).toLowerCase());
-            case "gt":
-              return Number(itemVal) > Number(value);
-            case "gte":
-              return Number(itemVal) >= Number(value);
-            case "lt":
-              return Number(itemVal) < Number(value);
-            case "lte":
-              return Number(itemVal) <= Number(value);
-            case "is_empty":
-              return itemVal === null || itemVal === "" || itemVal === undefined;
-            case "is_not_empty":
-              return itemVal !== null && itemVal !== "" && itemVal !== undefined;
-            default:
-              return true;
-          }
-        } catch {
-          return true;
-        }
-      })
-      .filter((r) => r !== null) as boolean[];
-
-    if (rowResults.length === 0) return true;
-    if (state.conjunction === "or") return rowResults.some((r) => r);
-    return rowResults.every((r) => r);
+    // Recursively evaluate the entire filter tree
+    return evaluateGroup(state.root, item as unknown as Record<string, unknown>);
   });
 
   return (

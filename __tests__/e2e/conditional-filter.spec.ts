@@ -183,4 +183,89 @@ test.describe("Conditional Filter Component", () => {
     // Verify filtered count (should exclude T-Shirt Basic and Polo Shirt = 8 products)
     await expect(page.getByText(/Showing \d+ of \d+ products/)).toBeVisible();
   });
+
+  test("should apply nested AND/OR group filters correctly", async ({ page }) => {
+    // Navigate to the demo page which has allowGrouping enabled and custom mock data
+    await page.goto("/docs/usage-examples");
+
+    // Wait for the specific mock data to load
+    await expect(page.getByText("Acme Corp")).toBeVisible();
+
+    // Open Filters
+    await page.getByRole("button", { name: /Filters/ }).click();
+
+    // 1. Add first filter to the root group: Status is Active
+    await page.getByRole("button", { name: "+ Add filter" }).click();
+
+    // Select the 'Status' field
+    await page.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: "Status" }).click();
+
+    // Now operator is visible. Switch operator to 'is'
+    await page.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "is", exact: true }).click();
+
+    // Select value 'Active'
+    await page.getByRole("combobox").nth(2).click();
+    await page.getByRole("option", { name: "Active", exact: true }).click();
+
+    // 2. Add a nested group
+    await page.getByRole("button", { name: "+ Add group" }).click();
+
+    // In the nested group, click "+ Add filter".
+    // In DOM order, the nested group's footer comes BEFORE the root group's footer!
+    // So the nested group's "+ Add filter" is actually the first one.
+    await page.getByRole("button", { name: "+ Add filter" }).first().click();
+
+    // 3. In the new row (second row overall), select "Name" -> "contains" -> "Corp"
+    // Using a class selector that matches rows. In our component it's usually `flex items-center space-x-2 w-full py-1`
+    const rows = page.locator(".flex.items-center.space-x-2.w-full.py-1");
+    await expect(rows).toHaveCount(2);
+    // The second row added is actually inside the nested group
+    const secondRow = rows.nth(1);
+
+    await secondRow.getByRole("combobox").nth(0).click();
+    await page.getByRole("option", { name: "Name" }).click();
+
+    await secondRow.getByRole("combobox").nth(1).click();
+    await page.getByRole("option", { name: "contains", exact: true }).click();
+
+    await secondRow.getByRole("textbox").fill("Corp");
+
+    // Verify textbox has the right value
+    await expect(secondRow.getByRole("textbox")).toHaveValue("Corp");
+
+    // 4. Apply
+    await page.getByRole("button", { name: "Apply" }).click();
+
+    // Verify it uses Base64 JSON URL instead of flat params
+    await expect(page).toHaveURL(/filters=eyJ/);
+
+    // Wait for table update and verify it filters to JUST Acme Corp (since root logic is AND by default)
+    await page.waitForTimeout(500);
+    await expect(page.getByText("Acme Corp")).toBeVisible();
+    await expect(page.getByText("Stark Ind")).not.toBeVisible();
+    await expect(page.getByText("Wayne Ent")).not.toBeVisible();
+    await expect(page.getByText("Globex Inc")).not.toBeVisible();
+
+    // 5. Change Root Logic to OR
+    await page.getByRole("button", { name: /Filters/ }).click();
+
+    // The nested group only has 1 child so it doesn't show an AND/OR toggle.
+    // The only 'OR' button visible is the root toggle in the footer.
+    const orButton = page
+      .locator(".flex.items-center.justify-between.mt-4")
+      .getByRole("button", { name: "OR", exact: true });
+    await orButton.click();
+
+    // Apply again
+    await page.getByRole("button", { name: "Apply" }).click();
+
+    // Wait for table update and verify it shows the union of Status=Active OR Name=Corp
+    await page.waitForTimeout(500);
+    await expect(page.getByText("Acme Corp")).toBeVisible(); // Name has Corp, Status is Active
+    await expect(page.getByText("Stark Ind")).toBeVisible(); // Status is Active
+    await expect(page.getByText("Wayne Ent")).toBeVisible(); // Status is Active
+    await expect(page.getByText("Hooli App")).not.toBeVisible(); // Status is banned, Name has App
+  });
 });

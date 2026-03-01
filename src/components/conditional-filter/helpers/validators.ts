@@ -1,4 +1,4 @@
-import type { FilterRow } from "../types";
+import type { FilterGroup, FilterRow } from "../types";
 
 export const isValidFilterRow = (row: FilterRow): boolean => {
   if (!row.field || !row.operator) return false;
@@ -27,4 +27,27 @@ export const isValidFilterRow = (row: FilterRow): boolean => {
 
 export const getValidFilterRows = (rows: FilterRow[]): FilterRow[] => {
   return rows.filter(isValidFilterRow);
+};
+
+/** Recursively collect all valid filter rows from a group tree */
+export const getValidRowsFromGroup = (group: FilterGroup): FilterRow[] => {
+  const rows: FilterRow[] = [];
+  for (const child of group.children) {
+    if (child.type === "row" && isValidFilterRow(child.row)) {
+      rows.push(child.row);
+    } else if (child.type === "group") {
+      rows.push(...getValidRowsFromGroup(child.group));
+    }
+  }
+  return rows;
+};
+
+/** Recursively count all valid filter rows */
+export const countValidRows = (group: FilterGroup): number => {
+  return getValidRowsFromGroup(group).length;
+};
+
+/** Check if a group tree has any sub-groups */
+export const hasSubGroups = (group: FilterGroup): boolean => {
+  return group.children.some((child) => child.type === "group");
 };

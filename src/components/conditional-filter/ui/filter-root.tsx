@@ -7,10 +7,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFilterContext } from "../provider/filter-context";
 import { FilterBadge } from "./filter-badge";
 import { FilterFooter } from "./filter-footer";
-import { FilterRowComponent } from "./filter-row";
+import { FilterGroupComponent } from "./filter-group";
 
 export function FilterRoot() {
-  const { state, config } = useFilterContext();
+  const { state } = useFilterContext();
 
   return (
     <Popover>
@@ -23,15 +23,7 @@ export function FilterRoot() {
       </PopoverTrigger>
       <PopoverContent className="w-[95vw] sm:w-[720px] p-4" align="end">
         <ScrollArea className="max-h-[400px] pr-4">
-          <div className="flex flex-col gap-2">
-            {state.rows.length === 0 ? (
-              <div className="text-center py-4 text-muted-foreground">
-                {config.locale?.noFilters || "No filters active"}
-              </div>
-            ) : (
-              state.rows.map((row) => <FilterRowComponent key={row.id} rowId={row.id} />)
-            )}
-          </div>
+          <FilterGroupComponent group={state.root} isRoot />
         </ScrollArea>
         <FilterFooter />
       </PopoverContent>

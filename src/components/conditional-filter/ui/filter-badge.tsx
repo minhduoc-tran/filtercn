@@ -1,16 +1,17 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
+import { countValidRows } from "../helpers/validators";
 import { useFilterContext } from "../provider/filter-context";
 
 export function FilterBadge() {
-  const { activeCount } = useFilterContext();
+  const { state } = useFilterContext();
+  const count = countValidRows(state.root);
 
-  if (activeCount === 0) return null;
+  if (count === 0) return null;
 
   return (
-    <Badge variant="secondary" className="ml-2 rounded-full px-2">
-      {activeCount}
-    </Badge>
+    <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs px-1.5 min-w-[20px] h-5">
+      {count}
+    </span>
   );
 }

@@ -61,10 +61,18 @@ export type FilterValue =
   | boolean
   | null;
 
+// ===== FILTER GROUP (recursive tree node) =====
+export interface FilterGroup {
+  id: string;
+  conjunction: "and" | "or";
+  children: FilterNode[];
+}
+
+export type FilterNode = { type: "row"; row: FilterRow } | { type: "group"; group: FilterGroup };
+
 // ===== FILTER STATE =====
 export interface FilterState {
-  rows: FilterRow[];
-  conjunction: "and" | "or";
+  root: FilterGroup;
 }
 
 // ===== REST QUERY OUTPUT =====
@@ -76,6 +84,10 @@ export interface FilterConfig {
   fields: FilterFieldDefinition[];
   /** Cho phép toggle AND/OR. Default: false */
   allowConjunctionToggle?: boolean;
+  /** Cho phép tạo group lồng nhau. Default: false */
+  allowGrouping?: boolean;
+  /** Độ sâu tối đa cho group nesting. Default: 3 */
+  maxGroupDepth?: number;
   /** Max filter rows. Default: 10 */
   maxRows?: number;
   /** Param style. Default: underscore */
@@ -92,6 +104,8 @@ export interface FilterConfig {
 
 export interface FilterLocale {
   addFilter: string;
+  addGroup: string;
+  deleteGroup: string;
   reset: string;
   apply: string;
   placeholder: string;

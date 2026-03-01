@@ -1,20 +1,25 @@
 "use client";
 
 import { useMemo } from "react";
-import { buildRestQuery } from "../helpers/query-builder";
+import { buildNestedQuery, buildRestQuery } from "../helpers/query-builder";
+import { getValidRowsFromGroup, hasSubGroups } from "../helpers/validators";
 import { useFilterContext } from "../provider/filter-context";
 
 export function useFilterQuery() {
   const { state, config, activeCount, isValid } = useFilterContext();
 
   const queryParams = useMemo(() => {
-    return buildRestQuery(state.rows, config);
-  }, [state.rows, config]);
+    if (hasSubGroups(state.root)) {
+      return buildNestedQuery(state.root, config);
+    }
+    const rows = getValidRowsFromGroup(state.root);
+    return buildRestQuery(rows, config);
+  }, [state.root, config]);
 
   return {
     queryParams,
     activeCount,
     isValid,
-    conjunction: state.conjunction,
+    conjunction: state.root.conjunction,
   };
 }

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildRestQuery } from "../helpers/query-builder";
 import { deserializeUrlToFilters, serializeFiltersToUrl } from "../helpers/serializer";
-import type { FilterConfig, FilterState } from "../types";
+import { getValidRowsFromGroup } from "../helpers/validators";
+import type { FilterConfig, FilterRow, FilterState } from "../types";
 
 const mockConfig: FilterConfig = {
   fields: [
@@ -14,6 +15,17 @@ const mockConfig: FilterConfig = {
   paramPrefix: "filter_",
 };
 
+/** Helper to create a FilterState from flat rows + conjunction */
+function makeState(rows: FilterRow[], conjunction: "and" | "or" = "and"): FilterState {
+  return {
+    root: {
+      id: "test-root",
+      conjunction,
+      children: rows.map((row) => ({ type: "row" as const, row })),
+    },
+  };
+}
+
 describe("Integration: Filter Roundtrip", () => {
   it("should serialize, generate query, and deserialize back to original state correctly", () => {
     const statusField = mockConfig.fields[0];
@@ -24,45 +36,27 @@ describe("Integration: Filter Roundtrip", () => {
       throw new Error("Missing test fields from mock config");
     }
 
+    const rows: FilterRow[] = [
+      { id: "1", field: statusField, operator: "in", value: ["active", "draft"] },
+      { id: "2", field: priceField, operator: "between", value: ["100", "500"] },
+      { id: "3", field: nameField, operator: "contains", value: "shirt" },
+    ];
+
     // 1. Initial State
-    const initialState: FilterState = {
-      conjunction: "or",
-      rows: [
-        {
-          id: "1",
-          field: statusField,
-          operator: "in",
-          value: ["active", "draft"],
-        },
-        {
-          id: "2",
-          field: priceField,
-          operator: "between",
-          value: ["100", "500"],
-        },
-        {
-          id: "3",
-          field: nameField,
-          operator: "contains",
-          value: "shirt",
-        },
-      ],
-    };
+    const initialState = makeState(rows, "or");
 
     // 2. Serialize to URL
     const urlParams = serializeFiltersToUrl(initialState, mockConfig);
     const urlString = urlParams.toString();
 
-    // Expected URL parts: conjunction=or & filter_status__in=active,draft & filter_price__range=100,500 & filter_name__icontains=shirt
     expect(urlString).toContain("conjunction=or");
     expect(urlString).toContain("filter_status__in=active%2Cdraft");
     expect(urlString).toContain("filter_price__range=100%2C500");
     expect(urlString).toContain("filter_name__icontains=shirt");
 
-    // 3. Build REST Query from the SAME state
-    const restQuery = buildRestQuery(initialState.rows, mockConfig);
+    // 3. Build REST Query from the SAME rows
+    const restQuery = buildRestQuery(rows, mockConfig);
 
-    // Expected REST query payload
     expect(restQuery).toEqual({
       filter_status__in: "active,draft",
       filter_price__range: "100,500",
@@ -72,16 +66,15 @@ describe("Integration: Filter Roundtrip", () => {
     // 4. Deserialize URL back to State
     const parsedParams = new URLSearchParams(urlString);
     const restoredState = deserializeUrlToFilters(parsedParams, mockConfig);
+    const restoredRows = getValidRowsFromGroup(restoredState.root);
 
     // 5. Compare initial and restored
-    expect(restoredState.conjunction).toBe("or");
-    expect(restoredState.rows).toHaveLength(3);
+    expect(restoredState.root.conjunction).toBe("or");
+    expect(restoredRows).toHaveLength(3);
 
-    // Filter order in URLSearchParams might vary occasionally in theory,
-    // but mostly matches insertion. Let's find them reliably.
-    const statusRow = restoredState.rows.find((r) => r.field?.name === "status");
-    const priceRow = restoredState.rows.find((r) => r.field?.name === "price");
-    const nameRow = restoredState.rows.find((r) => r.field?.name === "name");
+    const statusRow = restoredRows.find((r) => r.field?.name === "status");
+    const priceRow = restoredRows.find((r) => r.field?.name === "price");
+    const nameRow = restoredRows.find((r) => r.field?.name === "name");
 
     expect(statusRow?.operator).toBe("in");
     expect(statusRow?.value).toEqual(["active", "draft"]);

@@ -3,7 +3,6 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deserializeUrlToFilters, serializeFiltersToUrl } from "../helpers/serializer";
-import { getValidFilterRows } from "../helpers/validators";
 import type { FilterConfig, FilterState } from "../types";
 
 export const useFilterUrlSync = (config: FilterConfig) => {
@@ -36,11 +35,6 @@ export const useFilterUrlSync = (config: FilterConfig) => {
       const searchParamName = config.searchParamName || "q";
       const currentSearchParam = currentParams.get(searchParamName);
 
-      // We clear all existing filter params (by trusting what serialize gives us)
-      // Then we append any non-filter params back (except what's newly generated)
-      // Simplest approach: create a fresh URLSearchParams, add all from `newParams`,
-      // then add anything from `currentParams` that isn't managed by the filter.
-      // For simplicity, we just keep the search param if provided.
       if (currentSearchParam) {
         newParams.set(searchParamName, currentSearchParam);
       }
@@ -55,7 +49,8 @@ export const useFilterUrlSync = (config: FilterConfig) => {
 
   const applyChanges = useCallback(
     (newState: FilterState) => {
-      handleSync({ ...newState, rows: getValidFilterRows(newState.rows) });
+      // Only serialize valid rows but keep the tree structure
+      handleSync(newState);
     },
     [handleSync],
   );

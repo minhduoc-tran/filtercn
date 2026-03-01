@@ -81,7 +81,13 @@ function FilterDemo() {
           </p>
         </div>
         <FilterProvider
-          config={{ fields: productFields, paramStyle: "underscore", maxRows: 5, allowConjunctionToggle: true }}
+          config={{
+            fields: productFields,
+            paramStyle: "underscore",
+            maxRows: 5,
+            allowConjunctionToggle: true,
+            allowGrouping: true,
+          }}
         >
           <FilterBar className="w-full sm:w-auto min-w-[320px]" searchPlaceholder="Search models..." />
         </FilterProvider>

@@ -2,6 +2,8 @@ import type { FieldType, FilterLocale, OperatorType } from "./types";
 
 export const DEFAULT_LOCALE: FilterLocale = {
   addFilter: "+ Add filter",
+  addGroup: "+ Add group",
+  deleteGroup: "Delete group",
   reset: "Reset",
   apply: "Apply",
   placeholder: "Select...",

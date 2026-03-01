@@ -7,21 +7,28 @@ export interface FilterContextValue {
   config: FilterConfig;
   state: FilterState;
 
-  // Mutations
-  addRow: () => void;
+  // Row mutations
+  addRow: (groupId?: string) => void;
   removeRow: (id: string) => void;
   updateField: (id: string, field: FilterFieldDefinition) => void;
   updateOperator: (id: string, operator: OperatorType) => void;
   updateValue: (id: string, value: FilterValue) => void;
-  setConjunction: (conjunction: "and" | "or") => void;
-  reset: () => void;
+
+  // Group mutations
+  addGroup: (parentGroupId?: string) => void;
+  removeGroup: (groupId: string) => void;
+  setConjunction: (conjunction: "and" | "or", groupId?: string) => void;
 
   // Derived
   isValid: boolean;
   activeCount: number;
 
   // Actions
+  reset: () => void;
   apply: () => void;
+
+  // Helpers
+  getGroupDepth: (groupId: string) => number;
 }
 
 export const FilterContext = createContext<FilterContextValue | null>(null);

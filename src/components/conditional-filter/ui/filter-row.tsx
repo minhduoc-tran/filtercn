@@ -3,22 +3,21 @@
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useFilterContext } from "../provider/filter-context";
+import type { FilterRow } from "../types";
 import { FieldSelect } from "./field-select";
 import { OperatorSelect } from "./operator-select";
 import { ValueInput } from "./value-input";
 
 interface FilterRowProps {
   rowId: string;
+  row: FilterRow;
 }
 
-export function FilterRowComponent({ rowId }: FilterRowProps) {
-  const { state, removeRow } = useFilterContext();
-  const row = state.rows.find((r) => r.id === rowId);
-
-  if (!row) return null;
+export function FilterRowComponent({ row }: FilterRowProps) {
+  const { removeRow } = useFilterContext();
 
   return (
-    <div className="flex items-center space-x-2 w-full py-2">
+    <div className="flex items-center space-x-2 w-full py-1">
       <FieldSelect rowId={row.id} selectedField={row.field} />
 
       {row.field && <OperatorSelect rowId={row.id} selectedField={row.field.name} selectedOperator={row.operator} />}

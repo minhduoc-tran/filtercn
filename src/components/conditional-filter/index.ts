@@ -1,7 +1,7 @@
 export * from "./constants";
-export { buildRestQuery } from "./helpers/query-builder";
+export { buildNestedQuery, buildRestQuery } from "./helpers/query-builder";
 export { deserializeUrlToFilters, serializeFiltersToUrl } from "./helpers/serializer";
-export { getValidFilterRows, isValidFilterRow } from "./helpers/validators";
+export { countValidRows, getValidFilterRows, getValidRowsFromGroup, isValidFilterRow } from "./helpers/validators";
 export * from "./hooks/use-filter-options";
 export * from "./hooks/use-filter-query";
 export * from "./hooks/use-filter-state";
@@ -13,6 +13,7 @@ export * from "./ui/field-select";
 export * from "./ui/filter-badge";
 export * from "./ui/filter-bar";
 export * from "./ui/filter-footer";
+export * from "./ui/filter-group";
 export * from "./ui/filter-root";
 export * from "./ui/filter-row";
 export * from "./ui/operator-select";
